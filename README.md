@@ -12,7 +12,7 @@ RPGSheetGenerator is a character sheet generator for Dungeons & Dragons (D&D). T
 
 1. Clone the repository:
     ```bash
-    git clone https://github.com/your-username/RPGSheetGenerator.git
+    git clone https://github.com/giacomotrinca/RPGSheetGenerator.git
     ```
 2. Navigate to the project directory:
     ```bash
