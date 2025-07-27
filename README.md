@@ -1,42 +1,51 @@
 # RPGSheetGenerator
 
-RPGSheetGenerator is a character sheet generator for Dungeons & Dragons (D&D). This project allows you to create characters with randomly generated attributes and apply racial bonuses based on the chosen race.
+Un generatore di schede per personaggi di Dungeons & Dragons 5ª Edizione, sviluppato in C++ con GTK4 e libadwaita per un'interfaccia grafica moderna e pulita.
 
-## Features
+## Caratteristiche
 
-- Random generation of character attributes using the 4d6 method, dropping the lowest die.
-- Automatic application of racial bonuses to character attributes.
-- Support for various races and character classes.
+- **Creazione Guidata del Personaggio**: Un'interfaccia a più passaggi per guidarti nella creazione del tuo personaggio.
+- **Selezione Completa**: Scegli Razza, Classe, Background e Sottorazza (dove applicabile).
+- **Generazione Statistiche Flessibile**:
+    - **Point Buy**: Assegna i punti caratteristica con un budget di 27 punti, con calcolo dei costi in tempo reale.
+    - **Tira i Dadi (4d6 drop lowest)**: Lancia i dadi per generare i punteggi e assegnali alle caratteristiche con un'intuitiva interfaccia Drag-and-Drop.
+- **Interfaccia Moderna**: Costruito con libadwaita per un look & feel che si integra perfettamente con l'ambiente desktop GNOME.
+- **Multipiattaforma**: Essendo basato su GTK, ha il potenziale per funzionare su Linux, Windows e macOS.
 
-## Installation
+## Prerequisiti
 
-1. Clone the repository:
+Per compilare ed eseguire il progetto, avrai bisogno delle librerie di sviluppo per GTK4 e libadwaita.
+
+Su una distribuzione basata su **Debian/Ubuntu**, puoi installarle con:
+```bash
+sudo apt-get install libgtk-4-dev libadwaita-1-dev
+```
+
+Su una distribuzione basata su **Fedora**:
+```bash
+sudo dnf install gtk4-devel libadwaita-devel
+```
+
+Avrai anche bisogno di un compilatore C++ (`g++`) e di `pkg-config`, solitamente inclusi nel pacchetto `build-essential` o `development-tools`.
+
+## Come Compilare ed Eseguire
+
+1.  **Clona il repository:**
     ```bash
     git clone https://github.com/giacomotrinca/RPGSheetGenerator.git
     ```
-2. Navigate to the project directory:
+2.  **Entra nella directory del progetto:**
     ```bash
     cd RPGSheetGenerator
     ```
+3.  **Rendi eseguibile lo script di avvio:**
+    ```bash
+    chmod +x run.sh
+    ```
+4.  **Esegui lo script:**
+    Lo script si occuperà di compilare il codice sorgente ed avviare l'applicazione.
+    ```bash
+    ./run.sh
+    ```
 
-## Usage
 
-Example usage of the character generator:
-
-```python
-import library as lib
-
-# Define races
-human = lib.Race("Human", {'strength': 1, 'dexterity': 1, 'constitution': 1, 'intelligence': 1, 'wisdom': 1, 'charisma': 1})
-elf = lib.Race("Elf", {'dexterity': 2, 'intelligence': 1})
-half_elf = lib.Race("Half-Elf", {'charisma': 2, 'strength': 1, 'dexterity': 1})
-dwarf = lib.Race("Dwarf", {'constitution': 2, 'strength': 1})
-tiefling = lib.Race("Tiefling", {'intelligence': 1, 'charisma': 2})
-
-# Define character classes
-fighter = lib.CharacterClass("Fighter", 10)
-
-# Create an example character
-character = lib.Character("Arya", race=human, character_class=fighter, level=1)
-print(character)
-print(character.print_attributes())
