@@ -38,8 +38,6 @@ static void on_point_buy_changed(GObject *source_object, GParamSpec *pspec, gpoi
 static void on_method_changed(GObject *source_object, GParamSpec *pspec, gpointer user_data);
 // Funzioni per il Drag-and-Drop
 static GdkContentProvider* on_drag_prepare(GtkDragSource *source, double x, double y, gpointer user_data);
-// CORREZIONE: Aggiunta la dichiarazione mancante
-static void on_drag_end(GtkDragSource *source, GdkDragAction op, gpointer user_data);
 static gboolean on_stat_drop(GtkDropTarget *target, const GValue *value, double x, double y, gpointer user_data);
 static GtkWidget* create_draggable_score_label(int score);
 
@@ -422,8 +420,8 @@ static GtkWidget* create_draggable_score_label(int score) {
 
     GtkDragSource *source = gtk_drag_source_new();
     gtk_drag_source_set_actions(source, GDK_ACTION_MOVE);
+    // CORREZIONE: Passa l'etichetta stessa come user_data per identificarla
     g_signal_connect(source, "prepare", G_CALLBACK(on_drag_prepare), label);
-    g_signal_connect(source, "drag-end", G_CALLBACK(on_drag_end), NULL);
     gtk_widget_add_controller(label, GTK_EVENT_CONTROLLER(source));
 
     return label;
@@ -434,20 +432,15 @@ static GdkContentProvider* on_drag_prepare(GtkDragSource *source, double x, doub
     GtkWidget *label = GTK_WIDGET(user_data);
     const char *text = gtk_label_get_text(GTK_LABEL(label));
     
-    // CORREZIONE: Semplificata la creazione del GValue
+    // CORREZIONE: Passa un payload "punteggio:indirizzo_widget" per identificarlo univocamente
+    char payload[100];
+    sprintf(payload, "%s:%p", text, (void*)label);
+
     GValue value = G_VALUE_INIT;
     g_value_init(&value, G_TYPE_STRING);
-    g_value_set_string(&value, text);
-    
-    return gdk_content_provider_new_for_value(&value);
-}
+    g_value_set_string(&value, payload);
 
-// NUOVA: Gestisce la fine del drag per rimuovere il widget sorgente
-static void on_drag_end(GtkDragSource *source, GdkDragAction op, gpointer user_data) {
-    if (op == GDK_ACTION_MOVE) {
-        GtkWidget *label = gtk_event_controller_get_widget(GTK_EVENT_CONTROLLER(source));
-        gtk_widget_unparent(label);
-    }
+    return gdk_content_provider_new_for_value(&value);
 }
 
 // NUOVA: Gestisce il drop di un punteggio su una caratteristica
@@ -455,18 +448,44 @@ static gboolean on_stat_drop(GtkDropTarget *target, const GValue *value, double 
     StatsPageData *stats_data = (StatsPageData *)user_data;
     GtkEntry *entry = GTK_ENTRY(gtk_event_controller_get_widget(GTK_EVENT_CONTROLLER(target)));
     
-    const char *new_score_str = g_value_get_string(value);
-    
+    // CORREZIONE: Estrae il punteggio e l'indirizzo del widget dal payload
+    const char *payload = g_value_get_string(value);
+    char payload_copy[100];
+    strcpy(payload_copy, payload);
+
+    char *new_score_str = strtok(payload_copy, ":");
+    char *widget_addr_str = strtok(NULL, ":");
+
+    if (!new_score_str || !widget_addr_str) return FALSE;
+
+    // Gestisce lo scambio se la casella era già piena
     const char *old_score_str = gtk_editable_get_text(GTK_EDITABLE(entry));
     if (old_score_str && strlen(old_score_str) > 0) {
-        int old_score = atoi(old_score_str);
-        if (old_score > 0) {
-            GtkWidget *old_label = create_draggable_score_label(old_score);
-            gtk_flow_box_insert(stats_data->rolls_flowbox, old_label, -1);
+        // CORREZIONE: Cerca il widget disattivato e lo riattiva
+        GtkWidget *child = gtk_widget_get_first_child(GTK_WIDGET(stats_data->rolls_flowbox));
+        while (child != NULL) {
+            if (GTK_IS_LABEL(child) && !gtk_widget_get_sensitive(child)) {
+                if (strcmp(gtk_label_get_text(GTK_LABEL(child)), old_score_str) == 0) {
+                    gtk_widget_set_sensitive(child, TRUE);
+                    gtk_widget_set_opacity(child, 1.0);
+                    break;
+                }
+            }
+            child = gtk_widget_get_next_sibling(child);
         }
     }
 
+    // Imposta il nuovo punteggio
     gtk_editable_set_text(GTK_EDITABLE(entry), new_score_str);
+
+    // CORREZIONE: Disattiva l'etichetta originale dalla lista usando il suo indirizzo
+    GtkWidget *dragged_label = NULL;
+    sscanf(widget_addr_str, "%p", (void**)&dragged_label);
+
+    if (dragged_label) {
+        gtk_widget_set_opacity(dragged_label, 0.4);
+        gtk_widget_set_sensitive(dragged_label, FALSE);
+    }
 
     return TRUE; // Drop accettato
 }
@@ -481,7 +500,6 @@ int main(int argc, char **argv) {
 
     app = adw_application_new("com.esempio.dndgenerator", G_APPLICATION_DEFAULT_FLAGS);
     g_signal_connect(app, "activate", G_CALLBACK(activate), NULL);
-    // CORREZIONE: Usato G_APPLICATION invece di G_APPLICATION_APP
     status = g_application_run(G_APPLICATION(app), argc, argv);
     g_object_unref(app);
 
