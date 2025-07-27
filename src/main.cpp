@@ -25,6 +25,13 @@ typedef struct {
     // Rolling
     GtkFlowBox *rolls_flowbox;
     GtkEntry *stat_entries_rolling[6];
+    GtkEventController *stat_entries_rolling_controllers[6]; // Store controllers for disconnecting
+
+    // Method dropdown for stats method selection
+    GtkDropDown *method_dropdown;
+
+    // Hash table to track original positions of labels in rolls_flowbox
+    GHashTable *label_positions;
 } StatsPageData;
 
 
@@ -80,6 +87,35 @@ static void on_quit_clicked(GtkButton *button, gpointer user_data) {
 }
 
 // Funzione che costruisce il contenuto della pagina delle statistiche.
+static void disconnect_stats_data_signals(StatsPageData *stats_data) {
+    // Disconnect signals connected to stats_data widgets to avoid callbacks after free
+    for (int i = 0; i < 6; i++) {
+        g_signal_handlers_disconnect_by_func(stats_data->spin_rows_point_buy[i], (gpointer)on_point_buy_changed, stats_data);
+    }
+    g_signal_handlers_disconnect_by_func(gtk_widget_get_parent(GTK_WIDGET(stats_data->rolls_flowbox)), (gpointer)on_roll_dice_clicked, stats_data);
+    if (stats_data->method_dropdown) {
+        g_signal_handlers_disconnect_by_func(GTK_WIDGET(stats_data->method_dropdown), (gpointer)on_method_changed, stats_data);
+    }
+    // For drop signals on stat_entries_rolling, disconnect them from stored controllers
+    for (int i = 0; i < 6; i++) {
+        if (stats_data->stat_entries_rolling_controllers[i]) {
+            // g_signal_handlers_disconnect_by_func(stats_data->stat_entries_rolling_controllers[i], (gpointer)on_stat_drop, stats_data);
+            // Instead of disconnecting by func on controllers, disconnect from the widget signals
+            g_signal_handlers_disconnect_by_func(GTK_WIDGET(stats_data->stat_entries_rolling[i]), (gpointer)on_stat_drop, stats_data);
+        }
+    }
+    if (stats_data->label_positions) {
+        g_hash_table_destroy(stats_data->label_positions);
+        stats_data->label_positions = NULL;
+    }
+}
+
+static void on_stats_page_destroy(GtkWidget *widget, gpointer user_data) {
+    StatsPageData *stats_data = (StatsPageData *)user_data;
+    disconnect_stats_data_signals(stats_data);
+    g_free(stats_data);
+}
+
 static AdwNavigationPage* create_stats_page(AppData *data, const char* razza_scelta, const char* classe_scelta, const char* background_scelto) {
     AdwNavigationPage *content;
     GtkWidget *page_vbox, *stats_hbox, *summary_group, *right_vbox, *button_box, *back_button, *generate_button;
@@ -92,7 +128,9 @@ static AdwNavigationPage* create_stats_page(AppData *data, const char* razza_sce
     gtk_widget_set_margin_end(page_vbox, 24);
     gtk_widget_set_margin_top(page_vbox, 24);
     gtk_widget_set_margin_bottom(page_vbox, 24);
-    g_signal_connect(page_vbox, "destroy", G_CALLBACK(g_free), stats_data);
+    // Instead of connecting g_free directly, associate stats_data with page_vbox and free on destroy
+    // g_object_set_data_full(G_OBJECT(page_vbox), "stats_data", stats_data, g_free);
+    g_signal_connect(page_vbox, "destroy", G_CALLBACK(on_stats_page_destroy), stats_data);
 
     stats_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 30);
     gtk_widget_set_halign(stats_hbox, GTK_ALIGN_CENTER);
@@ -142,7 +180,11 @@ static AdwNavigationPage* create_stats_page(AppData *data, const char* razza_sce
         const char *sottorazze[] = {"Gnomo delle Foreste", "Gnomo delle Rocce", NULL};
         gtk_drop_down_set_model(dropdown_sottorazza, G_LIST_MODEL(gtk_string_list_new(sottorazze)));
         gtk_widget_set_visible(row_sottorazza, TRUE);
-    } else {
+    }else if (strcmp(razza_scelta, "Umano") == 0) {
+        const char *sottorazze[] = {"Variante", "Normale", NULL};
+        gtk_drop_down_set_model(dropdown_sottorazza, G_LIST_MODEL(gtk_string_list_new(sottorazze)));
+        gtk_widget_set_visible(row_sottorazza, TRUE);
+    }else {
         gtk_widget_set_visible(row_sottorazza, FALSE);
     }
     if (gtk_widget_is_visible(row_sottorazza)) {
@@ -200,6 +242,12 @@ static AdwNavigationPage* create_stats_page(AppData *data, const char* razza_sce
     gtk_box_append(GTK_BOX(roll_actions_box), GTK_WIDGET(stats_data->rolls_flowbox));
     gtk_box_append(GTK_BOX(stats_data->rolling_box), roll_actions_box);
 
+    // New reset button for clearing results
+    GtkWidget *reset_button = gtk_button_new_with_label("Reset Results");
+    gtk_widget_set_sensitive(reset_button, FALSE);
+    gtk_box_append(GTK_BOX(stats_data->rolling_box), reset_button);
+    g_signal_connect(reset_button, "clicked", G_CALLBACK(on_reset_button_clicked), stats_data);
+
     GtkWidget *roll_grid = gtk_grid_new();
     gtk_grid_set_row_spacing(GTK_GRID(roll_grid), 12);
     gtk_grid_set_column_spacing(GTK_GRID(roll_grid), 12);
@@ -212,7 +260,8 @@ static AdwNavigationPage* create_stats_page(AppData *data, const char* razza_sce
 
         GtkDropTarget *target = gtk_drop_target_new(G_TYPE_STRING, GDK_ACTION_MOVE);
         g_signal_connect(target, "drop", G_CALLBACK(on_stat_drop), stats_data);
-        gtk_widget_add_controller(GTK_WIDGET(stats_data->stat_entries_rolling[i]), GTK_EVENT_CONTROLLER(target));
+        stats_data->stat_entries_rolling_controllers[i] = GTK_EVENT_CONTROLLER(target);
+        gtk_widget_add_controller(GTK_WIDGET(stats_data->stat_entries_rolling[i]), stats_data->stat_entries_rolling_controllers[i]);
         
         gtk_grid_attach(GTK_GRID(roll_grid), label, 0, i, 1, 1);
         gtk_grid_attach(GTK_GRID(roll_grid), GTK_WIDGET(stats_data->stat_entries_rolling[i]), 1, i, 1, 1);
@@ -407,6 +456,19 @@ static void on_roll_dice_clicked(GtkButton *button, gpointer user_data) {
         GtkWidget *label = create_draggable_score_label(score);
         gtk_flow_box_insert(stats_data->rolls_flowbox, label, -1);
     }
+    // Disable reset button initially
+    GtkWidget *reset_button = NULL;
+    GList *children = gtk_container_get_children(GTK_CONTAINER(stats_data->rolling_box));
+    for (GList *l = children; l != NULL; l = l->next) {
+        if (GTK_IS_BUTTON(l->data)) {
+            reset_button = GTK_WIDGET(l->data);
+            break;
+        }
+    }
+    g_list_free(children);
+    if (reset_button) {
+        gtk_widget_set_sensitive(reset_button, FALSE);
+    }
 }
 
 // NUOVA: Crea un'etichetta trascinabile per un punteggio
@@ -447,8 +509,8 @@ static GdkContentProvider* on_drag_prepare(GtkDragSource *source, double x, doub
 static gboolean on_stat_drop(GtkDropTarget *target, const GValue *value, double x, double y, gpointer user_data) {
     StatsPageData *stats_data = (StatsPageData *)user_data;
     GtkEntry *entry = GTK_ENTRY(gtk_event_controller_get_widget(GTK_EVENT_CONTROLLER(target)));
-    
-    // CORREZIONE: Estrae il punteggio e l'indirizzo del widget dal payload
+
+    // Extract the score and widget address from the payload
     const char *payload = g_value_get_string(value);
     char payload_copy[100];
     strcpy(payload_copy, payload);
@@ -458,27 +520,38 @@ static gboolean on_stat_drop(GtkDropTarget *target, const GValue *value, double 
 
     if (!new_score_str || !widget_addr_str) return FALSE;
 
-    // Gestisce lo scambio se la casella era già piena
+    // Handle swapping if the box was already occupied
     const char *old_score_str = gtk_editable_get_text(GTK_EDITABLE(entry));
     if (old_score_str && strlen(old_score_str) > 0) {
-        // CORREZIONE: Cerca il widget disattivato e lo riattiva
+        // Find the label with the old score that is currently disabled
         GtkWidget *child = gtk_widget_get_first_child(GTK_WIDGET(stats_data->rolls_flowbox));
+        gboolean found_old_label = FALSE;
         while (child != NULL) {
-            if (GTK_IS_LABEL(child) && !gtk_widget_get_sensitive(child)) {
-                if (strcmp(gtk_label_get_text(GTK_LABEL(child)), old_score_str) == 0) {
+            if (GTK_IS_LABEL(child)) {
+                const char *child_text = gtk_label_get_text(GTK_LABEL(child));
+                gboolean is_disabled = !gtk_widget_get_sensitive(child);
+                if (is_disabled && strcmp(child_text, old_score_str) == 0) {
+                    // Re-enable the old label
                     gtk_widget_set_sensitive(child, TRUE);
                     gtk_widget_set_opacity(child, 1.0);
+                    found_old_label = TRUE;
                     break;
                 }
             }
             child = gtk_widget_get_next_sibling(child);
         }
+        // If the old label was not found in the flowbox (maybe removed), recreate and insert it
+        if (!found_old_label) {
+            int old_score = atoi(old_score_str);
+            GtkWidget *restored_label = create_draggable_score_label(old_score);
+            gtk_flow_box_insert(stats_data->rolls_flowbox, restored_label, -1);
+        }
     }
 
-    // Imposta il nuovo punteggio
+    // Set the new score in the entry
     gtk_editable_set_text(GTK_EDITABLE(entry), new_score_str);
 
-    // CORREZIONE: Disattiva l'etichetta originale dalla lista usando il suo indirizzo
+    // Disable the dragged label by its address
     GtkWidget *dragged_label = NULL;
     sscanf(widget_addr_str, "%p", (void**)&dragged_label);
 
@@ -487,7 +560,7 @@ static gboolean on_stat_drop(GtkDropTarget *target, const GValue *value, double 
         gtk_widget_set_sensitive(dragged_label, FALSE);
     }
 
-    return TRUE; // Drop accettato
+    return TRUE; // Drop accepted
 }
 
 
