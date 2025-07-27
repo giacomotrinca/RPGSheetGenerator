@@ -43,10 +43,60 @@ static void on_quit_clicked(GtkButton *button, gpointer user_data);
 static void on_roll_dice_clicked(GtkButton *button, gpointer user_data);
 static void on_point_buy_changed(GObject *source_object, GParamSpec *pspec, gpointer user_data);
 static void on_method_changed(GObject *source_object, GParamSpec *pspec, gpointer user_data);
+// Forward declaration for reset button callback
+static void on_reset_button_clicked(GtkButton *button, gpointer user_data);
+
+// New callback for reset button clicked
+static void on_reset_button_clicked(GtkButton *button, gpointer user_data);
+
 // Funzioni per il Drag-and-Drop
 static GdkContentProvider* on_drag_prepare(GtkDragSource *source, double x, double y, gpointer user_data);
 static gboolean on_stat_drop(GtkDropTarget *target, const GValue *value, double x, double y, gpointer user_data);
 static GtkWidget* create_draggable_score_label(int score);
+
+// New callback for reset button clicked
+static void on_reset_button_clicked(GtkButton *button, gpointer user_data) {
+    StatsPageData *stats_data = (StatsPageData *)user_data;
+
+    // For each stat entry, clear the text and re-enable the corresponding label in rolls_flowbox
+    for (int i = 0; i < 6; i++) {
+        const char *text = gtk_editable_get_text(GTK_EDITABLE(stats_data->stat_entries_rolling[i]));
+        if (text && strlen(text) > 0) {
+            // Find the label with this score that is disabled
+            GtkWidget *child = gtk_widget_get_first_child(GTK_WIDGET(stats_data->rolls_flowbox));
+            gboolean found_label = FALSE;
+            while (child != NULL) {
+                if (GTK_IS_LABEL(child)) {
+                    const char *child_text = gtk_label_get_text(GTK_LABEL(child));
+                    gboolean is_disabled = !gtk_widget_get_sensitive(child);
+                    if (is_disabled && strcmp(child_text, text) == 0) {
+                        gtk_widget_set_sensitive(child, TRUE);
+                        gtk_widget_set_opacity(child, 1.0);
+                        found_label = TRUE;
+                        break;
+                    }
+                }
+                child = gtk_widget_get_next_sibling(child);
+            }
+            // If not found, recreate and insert
+            if (!found_label) {
+                int score = atoi(text);
+                GtkWidget *restored_label = create_draggable_score_label(score);
+                gtk_flow_box_insert(stats_data->rolls_flowbox, restored_label, -1);
+            }
+        }
+        gtk_editable_set_text(GTK_EDITABLE(stats_data->stat_entries_rolling[i]), "");
+    }
+
+    // Disable the reset button after clearing
+    gtk_widget_set_sensitive(GTK_WIDGET(button), FALSE);
+}
+
+// Forward declaration for reset button callback
+static void on_reset_button_clicked(GtkButton *button, gpointer user_data);
+
+// Forward declaration for reset button callback
+static void on_reset_button_clicked(GtkButton *button, gpointer user_data);
 
 
 // Funzione di callback per il pulsante "Avanti".
@@ -425,51 +475,51 @@ static void on_point_buy_changed(GObject *source_object, GParamSpec *pspec, gpoi
     }
 }
 
-// Logica per il lancio dei dadi
-static void on_roll_dice_clicked(GtkButton *button, gpointer user_data) {
-    StatsPageData *stats_data = (StatsPageData *)user_data;
-    
-    GtkWidget *child = gtk_widget_get_first_child(GTK_WIDGET(stats_data->rolls_flowbox));
-    while (child != NULL) {
-        GtkWidget* next_child = gtk_widget_get_next_sibling(child);
-        gtk_flow_box_remove(stats_data->rolls_flowbox, child);
-        child = next_child;
-    }
-    for (int i = 0; i < 6; i++) {
-        gtk_editable_set_text(GTK_EDITABLE(stats_data->stat_entries_rolling[i]), "");
-    }
-
-    for (int i = 0; i < 6; i++) {
-        int rolls[4];
-        int sum = 0;
-        int min = 7;
-
-        for (int j = 0; j < 4; j++) {
-            rolls[j] = (rand() % 6) + 1;
-            sum += rolls[j];
-            if (rolls[j] < min) {
-                min = rolls[j];
-            }
-        }
-        int score = sum - min;
+    // Logica per il lancio dei dadi
+    static void on_roll_dice_clicked(GtkButton *button, gpointer user_data) {
+        StatsPageData *stats_data = (StatsPageData *)user_data;
         
-        GtkWidget *label = create_draggable_score_label(score);
-        gtk_flow_box_insert(stats_data->rolls_flowbox, label, -1);
-    }
-    // Disable reset button initially
-    GtkWidget *reset_button = NULL;
-    GList *children = gtk_container_get_children(GTK_CONTAINER(stats_data->rolling_box));
-    for (GList *l = children; l != NULL; l = l->next) {
-        if (GTK_IS_BUTTON(l->data)) {
-            reset_button = GTK_WIDGET(l->data);
-            break;
+        GtkWidget *child = gtk_widget_get_first_child(GTK_WIDGET(stats_data->rolls_flowbox));
+        while (child != NULL) {
+            GtkWidget* next_child = gtk_widget_get_next_sibling(child);
+            gtk_flow_box_remove(stats_data->rolls_flowbox, child);
+            child = next_child;
+        }
+        for (int i = 0; i < 6; i++) {
+            gtk_editable_set_text(GTK_EDITABLE(stats_data->stat_entries_rolling[i]), "");
+        }
+
+        for (int i = 0; i < 6; i++) {
+            int rolls[4];
+            int sum = 0;
+            int min = 7;
+
+            for (int j = 0; j < 4; j++) {
+                rolls[j] = (rand() % 6) + 1;
+                sum += rolls[j];
+                if (rolls[j] < min) {
+                    min = rolls[j];
+                }
+            }
+            int score = sum - min;
+            
+            GtkWidget *label = create_draggable_score_label(score);
+            gtk_flow_box_insert(stats_data->rolls_flowbox, label, -1);
+        }
+        // Disable reset button initially
+        GtkWidget *reset_button = NULL;
+        child = gtk_widget_get_first_child(stats_data->rolling_box);
+        while (child != NULL) {
+            if (GTK_IS_BUTTON(child)) {
+                reset_button = child;
+                break;
+            }
+            child = gtk_widget_get_next_sibling(child);
+        }
+        if (reset_button) {
+            gtk_widget_set_sensitive(reset_button, FALSE);
         }
     }
-    g_list_free(children);
-    if (reset_button) {
-        gtk_widget_set_sensitive(reset_button, FALSE);
-    }
-}
 
 // NUOVA: Crea un'etichetta trascinabile per un punteggio
 static GtkWidget* create_draggable_score_label(int score) {
