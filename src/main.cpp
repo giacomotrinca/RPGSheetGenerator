@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <math.h>
 
 // --- LIBRERIA NOMI ---
 // Helper per ottenere un nome casuale da un array.
@@ -76,11 +77,13 @@ typedef struct {
     GtkWidget *point_buy_label;
     AdwSpinRow *spin_rows_point_buy[6];
     GtkWidget *total_score_labels_pb[6];
+    GtkWidget *modifier_labels_pb[6];
 
     // Rolling
     GtkFlowBox *rolls_flowbox;
     GtkEntry *stat_entries_rolling[6];
     GtkWidget *total_score_labels_roll[6];
+    GtkWidget *modifier_labels_roll[6];
     GtkWidget *reset_button_rolling;
     
     // Comuni
@@ -393,6 +396,10 @@ static AdwNavigationPage* create_stats_page(AppData *data, const char* nome_scel
     GtkWidget *pb_total_header = gtk_label_new("<b>Totale</b>");
     gtk_label_set_use_markup(GTK_LABEL(pb_total_header), TRUE);
     gtk_grid_attach(GTK_GRID(pb_grid), pb_total_header, 2, 0, 1, 1);
+    GtkWidget *pb_mod_header = gtk_label_new("<b>Mod.</b>");
+    gtk_label_set_use_markup(GTK_LABEL(pb_mod_header), TRUE);
+    gtk_grid_attach(GTK_GRID(pb_grid), pb_mod_header, 3, 0, 1, 1);
+
     for (int i = 0; stats_names[i] != NULL; ++i) {
         GtkWidget *label = gtk_label_new(stats_names[i]);
         stats_data->spin_rows_point_buy[i] = ADW_SPIN_ROW(adw_spin_row_new_with_range(8, 15, 1));
@@ -400,9 +407,13 @@ static AdwNavigationPage* create_stats_page(AppData *data, const char* nome_scel
         g_signal_connect(stats_data->spin_rows_point_buy[i], "notify::value", G_CALLBACK(on_point_buy_changed), stats_data);
         stats_data->total_score_labels_pb[i] = gtk_label_new("8");
         gtk_widget_add_css_class(stats_data->total_score_labels_pb[i], "title-3");
+        stats_data->modifier_labels_pb[i] = gtk_label_new("-1");
+        gtk_widget_add_css_class(stats_data->modifier_labels_pb[i], "title-3");
+
         gtk_grid_attach(GTK_GRID(pb_grid), label, 0, i + 1, 1, 1);
         gtk_grid_attach(GTK_GRID(pb_grid), GTK_WIDGET(stats_data->spin_rows_point_buy[i]), 1, i + 1, 1, 1);
         gtk_grid_attach(GTK_GRID(pb_grid), stats_data->total_score_labels_pb[i], 2, i + 1, 1, 1);
+        gtk_grid_attach(GTK_GRID(pb_grid), stats_data->modifier_labels_pb[i], 3, i + 1, 1, 1);
     }
     gtk_box_append(GTK_BOX(stats_data->point_buy_box), pb_grid);
 
@@ -432,6 +443,10 @@ static AdwNavigationPage* create_stats_page(AppData *data, const char* nome_scel
     GtkWidget *roll_total_header = gtk_label_new("<b>Totale</b>");
     gtk_label_set_use_markup(GTK_LABEL(roll_total_header), TRUE);
     gtk_grid_attach(GTK_GRID(roll_grid), roll_total_header, 2, 0, 1, 1);
+    GtkWidget *roll_mod_header = gtk_label_new("<b>Mod.</b>");
+    gtk_label_set_use_markup(GTK_LABEL(roll_mod_header), TRUE);
+    gtk_grid_attach(GTK_GRID(roll_grid), roll_mod_header, 3, 0, 1, 1);
+
     for (int i = 0; stats_names[i] != NULL; ++i) {
         GtkWidget *label = gtk_label_new(stats_names[i]);
         stats_data->stat_entries_rolling[i] = GTK_ENTRY(gtk_entry_new());
@@ -443,9 +458,13 @@ static AdwNavigationPage* create_stats_page(AppData *data, const char* nome_scel
         gtk_widget_add_controller(GTK_WIDGET(stats_data->stat_entries_rolling[i]), GTK_EVENT_CONTROLLER(target));
         stats_data->total_score_labels_roll[i] = gtk_label_new("-");
         gtk_widget_add_css_class(stats_data->total_score_labels_roll[i], "title-3");
+        stats_data->modifier_labels_roll[i] = gtk_label_new("-");
+        gtk_widget_add_css_class(stats_data->modifier_labels_roll[i], "title-3");
+
         gtk_grid_attach(GTK_GRID(roll_grid), label, 0, i + 1, 1, 1);
         gtk_grid_attach(GTK_GRID(roll_grid), GTK_WIDGET(stats_data->stat_entries_rolling[i]), 1, i + 1, 1, 1);
         gtk_grid_attach(GTK_GRID(roll_grid), stats_data->total_score_labels_roll[i], 2, i + 1, 1, 1);
+        gtk_grid_attach(GTK_GRID(roll_grid), stats_data->modifier_labels_roll[i], 3, i + 1, 1, 1);
     }
     gtk_box_append(GTK_BOX(stats_data->rolling_box), roll_grid);
 
@@ -645,6 +664,25 @@ static void activate(GtkApplication* app, gpointer user_data) {
     data->main_window = GTK_WINDOW(window);
     gtk_window_set_title(GTK_WINDOW(window), "Generatore Schede D&D");
     gtk_window_set_default_size(GTK_WINDOW(window), -1, -1);
+
+    // Aggiungi CSS Provider per lo stile personalizzato
+    GtkCssProvider *provider = gtk_css_provider_new();
+    const char *css =
+        "checkbutton.saving-throw-check > check {"
+        "  min-width: 22px;"
+        "  min-height: 22px;"
+        "  padding: 0;"
+        "  border-radius: 0px;"
+        "  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);"
+        "}";
+    gtk_css_provider_load_from_string(provider, css);
+    gtk_style_context_add_provider_for_display(
+        gdk_display_get_default(),
+        GTK_STYLE_PROVIDER(provider),
+        GTK_STYLE_PROVIDER_PRIORITY_APPLICATION
+    );
+    g_object_unref(provider);
+
 
     toolbar_view = adw_toolbar_view_new();
     adw_application_window_set_content(ADW_APPLICATION_WINDOW(window), toolbar_view);
@@ -933,18 +971,25 @@ static void update_total_scores(StatsPageData *stats_data) {
         }
     }
 
-    // 4. Aggiorna le etichette dei totali
+    // 4. Aggiorna le etichette dei totali e dei modificatori
     for (int i = 0; i < 6; i++) {
         int total = base_scores[i] + racial_bonuses[i];
+        int modifier = floor((double)(total - 10) / 2.0);
         char total_str[4];
+        char modifier_str[5];
         sprintf(total_str, "%d", total);
+        sprintf(modifier_str, "%+d", modifier);
+
         if (is_point_buy) {
             gtk_label_set_text(GTK_LABEL(stats_data->total_score_labels_pb[i]), total_str);
+            gtk_label_set_text(GTK_LABEL(stats_data->modifier_labels_pb[i]), modifier_str);
         } else {
             if (base_scores[i] > 0) {
                 gtk_label_set_text(GTK_LABEL(stats_data->total_score_labels_roll[i]), total_str);
+                gtk_label_set_text(GTK_LABEL(stats_data->modifier_labels_roll[i]), modifier_str);
             } else {
                 gtk_label_set_text(GTK_LABEL(stats_data->total_score_labels_roll[i]), "-");
+                gtk_label_set_text(GTK_LABEL(stats_data->modifier_labels_roll[i]), "-");
             }
         }
     }
@@ -982,7 +1027,7 @@ static void update_forward_button_sensitivity(StatsPageData *stats_data) {
     gtk_widget_set_sensitive(stats_data->forward_button, is_sensitive);
 }
 
-// NUOVA VERSIONE: Creazione della pagina delle competenze con layout migliorato
+// Creazione della pagina delle competenze con layout migliorato
 static AdwNavigationPage* create_skills_page(AppData *data) {
     // Contenitore principale della pagina con margini
     GtkWidget *page_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
@@ -996,12 +1041,19 @@ static AdwNavigationPage* create_skills_page(AppData *data) {
     gtk_widget_set_vexpand(scrolled_window, TRUE);
     gtk_box_append(GTK_BOX(page_vbox), scrolled_window);
 
-    // Box per il contenuto dentro la finestra a scorrimento
+    // Box centrato per contenere la lista e forzare l'allineamento
+    GtkWidget *center_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_widget_set_halign(center_box, GTK_ALIGN_CENTER);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled_window), center_box);
+
+    // Box per il contenuto con larghezza fissa
     GtkWidget *content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled_window), content_box);
+    gtk_widget_set_size_request(content_box, 500, -1); // Larghezza fissa per allineare i suffix
+    gtk_box_append(GTK_BOX(center_box), content_box);
+
 
     // Etichetta di intestazione
-    GtkWidget *header_label = gtk_label_new("Competenze del Personaggio");
+    GtkWidget *header_label = gtk_label_new("Competenze e Tiri Salvezza");
     gtk_widget_add_css_class(header_label, "title-2");
     gtk_widget_set_halign(header_label, GTK_ALIGN_START);
     gtk_box_append(GTK_BOX(content_box), header_label);
@@ -1016,6 +1068,7 @@ static AdwNavigationPage* create_skills_page(AppData *data) {
     const struct SkillGroup skill_data[] = {
         {"Forza", {"Atletica", NULL}},
         {"Destrezza", {"Acrobazia", "Furtività", "Rapidità di Mano", NULL}},
+        {"Costituzione", {NULL}},
         {"Intelligenza", {"Arcano", "Indagare", "Natura", "Religione", "Storia", NULL}},
         {"Saggezza", {"Addestrare Animali", "Intuizione", "Medicina", "Percezione", "Sopravvivenza", NULL}},
         {"Carisma", {"Inganno", "Intimidire", "Intrattenere", "Persuasione", NULL}},
@@ -1026,6 +1079,13 @@ static AdwNavigationPage* create_skills_page(AppData *data) {
     for (int i = 0; skill_data[i].characteristic != NULL; i++) {
         GtkWidget *group = adw_preferences_group_new();
         adw_preferences_group_set_title(ADW_PREFERENCES_GROUP(group), skill_data[i].characteristic);
+        
+        // Aggiunge una checkbox per il tiro salvezza nell'header del gruppo
+        GtkWidget *saving_throw_check = gtk_check_button_new();
+        gtk_widget_set_tooltip_text(saving_throw_check, "Competenza nel Tiro Salvezza");
+        gtk_widget_add_css_class(saving_throw_check, "saving-throw-check"); // Aggiunge la classe CSS
+        adw_preferences_group_set_header_suffix(ADW_PREFERENCES_GROUP(group), saving_throw_check);
+        
         gtk_box_append(GTK_BOX(content_box), group);
 
         for (int j = 0; skill_data[i].skills[j] != NULL; j++) {
