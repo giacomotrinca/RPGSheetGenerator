@@ -119,11 +119,11 @@ sudo pacman -S base-devel gtk4 libadwaita
 **Tool di Build**:
 - GCC 9.0+ o Clang 10.0+
 - pkg-config
-- make (opzionale)
+- make
 
 ## 🚀 Installazione
 
-### Metodo 1: Compilazione Diretta
+### Metodo 1: Compilazione con Makefile (Raccomandato)
 
 1. **Clona il repository:**
    ```bash
@@ -131,13 +131,25 @@ sudo pacman -S base-devel gtk4 libadwaita
    cd RPGSheetGenerator
    ```
 
-2. **Compila ed esegui:**
+2. **Verifica le dipendenze:**
+   ```bash
+   make check-deps
+   ```
+
+3. **Compila ed esegui:**
+   ```bash
+   make run
+   ```
+
+### Metodo 2: Compilazione Diretta con Script
+
+1. **Compila ed esegui:**
    ```bash
    chmod +x run
    ./run
    ```
 
-### Metodo 2: Compilazione Manuale
+### Metodo 3: Compilazione Manuale
 
 ```bash
 # Compila l'applicazione
@@ -145,6 +157,26 @@ g++ ./src/main.cpp -o dnd_generator $(pkg-config --cflags --libs gtk4 libadwaita
 
 # Esegui l'applicazione
 ./dnd_generator
+```
+
+### Comandi Makefile Utili
+
+```bash
+# Compilazione e test
+make                    # Compila l'applicazione
+make run               # Compila ed esegue
+make debug             # Compila in modalità debug
+make run-debug         # Compila ed esegue in debug
+
+# Gestione sistema
+make install           # Installa in /usr/local/bin
+make uninstall         # Disinstalla
+make clean             # Pulisce i file compilati
+
+# Utilità
+make check-deps        # Verifica le dipendenze
+make info              # Mostra informazioni del progetto
+make help              # Mostra tutti i comandi disponibili
 ```
 
 ### Metodo 3: Installazione Sistema (Opzionale)
@@ -175,7 +207,43 @@ dnd_generator
    - **Lancio Dadi**: Genera e assegna valori casuali
 5. **Background**: Seleziona il background del personaggio
 6. **Competenze**: Verifica e personalizza le competenze automatiche
-7. **Finalizzazione**: Rivedi e salva la scheda completata
+7. **Scheda Finale**: Visualizza la scheda completa del personaggio
+
+### Schermata Finale - Caratteristiche
+
+La nuova schermata finale presenta la scheda del personaggio in un layout moderno e professionale:
+
+#### 📋 **Header Personaggio**
+- **Nome prominente** con styling elegante
+- **Informazioni razza e classe** ben formattate
+- **Livello e background** chiaramente visibili
+
+#### 📊 **Statistiche Principali**
+- **Cards moderne** per ogni caratteristica (FOR, DES, COS, INT, SAG, CAR)
+- **Modificatori evidenziati** in grande
+- **Valori base** sotto ogni modificatore
+- **Effetti hover** per un'esperienza interattiva
+
+#### ⚔️ **Statistiche di Combattimento**
+- **Classe Armatura, Punti Ferita, Iniziativa**
+- **Velocità e Bonus Competenza**
+- **Design distinto** con colori e ombre
+
+#### 🎯 **Competenze e Tiri Salvezza**
+- **Sezioni organizzate** per tiri salvezza e competenze
+- **Indicatori visivi** per le competenze possedute
+- **Calcoli automatici** dei modificatori
+
+#### 🎨 **Design Moderno**
+- **Gradienti e ombre** per profondità visiva
+- **Palette colori** coerente con libadwaita
+- **Animazioni fluide** su hover e transizioni
+- **Layout responsive** che si adatta alle dimensioni
+
+#### 🔄 **Funzionalità Aggiuntive**
+- **Pulsante "Nuovo Personaggio"** per ricominciare
+- **Pulsante "Esporta PDF"** (placeholder per funzionalità futura)
+- **Navigazione fluida** tra le schermate
 
 ### Caratteristiche dell'Interfaccia
 
@@ -183,6 +251,7 @@ dnd_generator
 - **Validazione Real-time**: Controlli immediati su valori e selezioni
 - **Calcoli Automatici**: Tutti i modificatori e bonus aggiornati istantaneamente
 - **Anteprima Live**: Visualizzazione in tempo reale delle statistiche finali
+- **Design Coerente**: Utilizza le linee guida di design di GNOME/libadwaita
 
 ## 🔨 Sviluppo
 
@@ -203,8 +272,9 @@ RPGSheetGenerator/
 - **Linguaggio**: C++17
 - **GUI Framework**: GTK4
 - **Design System**: libadwaita
-- **Build System**: GCC con pkg-config
+- **Build System**: Makefile con GCC e pkg-config
 - **Gestione Memoria**: RAII e smart pointers
+- **Styling**: CSS personalizzato per interfaccia moderna
 
 ### Compilazione per Sviluppatori
 
@@ -221,12 +291,27 @@ g++ -Wall -Wextra -Wpedantic ./src/main.cpp -o dnd_generator $(pkg-config --cfla
 
 ### Estensioni Future
 
-- [ ] Supporto per salvataggio/caricamento schede
-- [ ] Export in PDF
-- [ ] Supporto multi-lingua
+#### ✅ **Completate nella versione corrente:**
+- [x] Schermata finale con layout moderno e professionale
+- [x] Sistema di build con Makefile completo
+- [x] CSS personalizzato per un design accattivante
+- [x] Visualizzazione completa della scheda del personaggio
+- [x] Funzionalità "Nuovo Personaggio" per ricominciare
+
+#### 🚧 **In Sviluppo:**
+- [ ] Export completo in PDF della scheda
+- [ ] Supporto per salvataggio/caricamento schede in formato JSON
+- [ ] Modalità stampa ottimizzata
+
+#### 🔮 **Roadmap Futura:**
+- [ ] Supporto multi-lingua (Inglese, Francese, Spagnolo)
 - [ ] Integrazione con API D&D Beyond
 - [ ] Supporto per contenuti aggiuntivi (Xanathar's, Tasha's, etc.)
 - [ ] Modalità campagna per gestire multiple schede
+- [ ] Sistema di note e biografia del personaggio
+- [ ] Calcolatore di equipaggiamento e inventario
+- [ ] Sistema di incantesimi per classi magiche
+- [ ] Generatore di background personalizzati
 
 ## 🤝 Contributi
 

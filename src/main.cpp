@@ -153,9 +153,12 @@ static void update_total_scores(StatsPageData *stats_data);
 static void update_forward_button_sensitivity(StatsPageData *stats_data);
 static AdwNavigationPage* create_stats_page(AppData *data, const char* nome_scelto, const char* genere_scelto, int livello_scelto, const char* razza_scelta, const char* subrace_scelta, const char* classe_scelta, const char* background_scelto);
 static AdwNavigationPage* create_skills_page(AppData *data, const char* razza_scelta, const char* subrace_scelta, const char* classe_scelta, const char* background_scelto);
+static AdwNavigationPage* create_character_sheet_page(AppData *data, SkillsPageData *skills_data);
 static void on_back_clicked(GtkButton *button, gpointer user_data);
 static void on_stats_avanti_clicked(GtkButton *button, gpointer user_data);
 static void on_generate_sheet_clicked(GtkButton *button, gpointer user_data);
+static void on_new_character_clicked(GtkButton *button, gpointer user_data);
+static void on_export_pdf_clicked(GtkButton *button, gpointer user_data);
 static void on_quit_clicked(GtkButton *button, gpointer user_data);
 static void on_roll_dice_clicked(GtkButton *button, gpointer user_data);
 static void on_point_buy_changed(GObject *source_object, GParamSpec *pspec, gpointer user_data);
@@ -438,10 +441,361 @@ static void on_stats_avanti_clicked(GtkButton *button, gpointer user_data) {
     adw_navigation_view_push(data->nav_view, skills_page);
 }
 
+// Struttura per contenere tutti i dati del personaggio completo
+typedef struct {
+    char* name;
+    char* race;
+    char* subrace;
+    char* class_name;
+    char* background;
+    char* gender;
+    int level;
+    int stats[6];
+    int modifiers[6];
+    int saving_throws[6];
+    gboolean saving_throw_proficiencies[6];
+    gboolean skill_proficiencies[18];
+    int armor_class;
+    int hit_points;
+    int proficiency_bonus;
+    int initiative;
+    int speed;
+} CharacterSheetData;
+
+// Crea la pagina finale della scheda del personaggio
+static AdwNavigationPage* create_character_sheet_page(AppData *data, SkillsPageData *skills_data) {
+    // Raccoglie tutti i dati del personaggio
+    CharacterSheetData *sheet_data = g_new0(CharacterSheetData, 1);
+    
+    // Informazioni base
+    const char *nome = gtk_editable_get_text(GTK_EDITABLE(data->entry_nome));
+    sheet_data->name = g_strdup(strlen(nome) > 0 ? nome : "Senza Nome");
+    sheet_data->race = g_strdup(skills_data->race);
+    sheet_data->subrace = g_strdup(skills_data->subrace);
+    sheet_data->class_name = g_strdup(skills_data->class_name);
+    sheet_data->background = g_strdup(skills_data->background);
+    sheet_data->level = (int)gtk_range_get_value(GTK_RANGE(data->scale_livello));
+    
+    GtkStringList *generi_model = GTK_STRING_LIST(gtk_drop_down_get_model(data->dropdown_genere));
+    guint genere_pos = gtk_drop_down_get_selected(data->dropdown_genere);
+    sheet_data->gender = g_strdup(gtk_string_list_get_string(generi_model, genere_pos));
+    
+    // Statistiche e modificatori
+    for (int i = 0; i < 6; i++) {
+        sheet_data->stats[i] = skills_data->final_stats[i];
+        sheet_data->modifiers[i] = floor((double)(sheet_data->stats[i] - 10) / 2.0);
+        
+        // Tiri salvezza
+        gboolean has_st_prof = gtk_check_button_get_active(skills_data->st_checks[i]);
+        sheet_data->saving_throw_proficiencies[i] = has_st_prof;
+        sheet_data->saving_throws[i] = sheet_data->modifiers[i] + (has_st_prof ? get_proficiency_bonus(sheet_data->level) : 0);
+    }
+    
+    // Competenze abilità
+    for (int i = 0; i < NUM_SKILLS; i++) {
+        sheet_data->skill_proficiencies[i] = gtk_check_button_get_active(skills_data->skill_checks[i]);
+    }
+    
+    // Calcoli derivati
+    sheet_data->proficiency_bonus = get_proficiency_bonus(sheet_data->level);
+    sheet_data->initiative = sheet_data->modifiers[1]; // Destrezza
+    sheet_data->armor_class = 10 + sheet_data->modifiers[1]; // Base AC
+    sheet_data->hit_points = 8 + sheet_data->modifiers[2]; // Base HP (d8 + CON mod)
+    sheet_data->speed = 9; // Velocità base standard (9 metri = 30 piedi)
+    
+    // Adattamenti velocità per razza
+    if (strcmp(sheet_data->race, "Nano") == 0 || strcmp(sheet_data->race, "Halfling") == 0) {
+        sheet_data->speed = 7; // 7.5 metri (25 piedi) arrotondato a 7
+    } else if (strcmp(sheet_data->race, "Elfo") == 0) {
+        sheet_data->speed = 9; // 9 metri (30 piedi)
+    }
+    
+    // Contenitore principale con scrolling
+    GtkWidget *scrolled_window = gtk_scrolled_window_new();
+    gtk_widget_set_vexpand(scrolled_window, TRUE);
+    
+    GtkWidget *main_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_widget_add_css_class(main_box, "character-sheet");
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled_window), main_box);
+    
+    // === HEADER DELLA SCHEDA ===
+    GtkWidget *header_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    gtk_widget_set_margin_start(header_box, 32);
+    gtk_widget_set_margin_end(header_box, 32);
+    gtk_widget_set_margin_top(header_box, 24);
+    gtk_widget_set_margin_bottom(header_box, 24);
+    gtk_widget_add_css_class(header_box, "sheet-header");
+    gtk_box_append(GTK_BOX(main_box), header_box);
+    
+    // Nome del personaggio
+    GtkWidget *character_name = gtk_label_new(sheet_data->name);
+    gtk_widget_add_css_class(character_name, "title-1");
+    gtk_widget_add_css_class(character_name, "character-name");
+    gtk_widget_set_halign(character_name, GTK_ALIGN_CENTER);
+    gtk_box_append(GTK_BOX(header_box), character_name);
+    
+    // Informazioni base in layout orizzontale
+    GtkWidget *info_grid = gtk_grid_new();
+    gtk_grid_set_column_spacing(GTK_GRID(info_grid), 24);
+    gtk_grid_set_row_spacing(GTK_GRID(info_grid), 8);
+    gtk_widget_set_halign(info_grid, GTK_ALIGN_CENTER);
+    gtk_box_append(GTK_BOX(header_box), info_grid);
+    
+    char race_class_str[200];
+    if (strlen(sheet_data->subrace) > 0) {
+        sprintf(race_class_str, "%s (%s) %s", sheet_data->race, sheet_data->subrace, sheet_data->class_name);
+    } else {
+        sprintf(race_class_str, "%s %s", sheet_data->race, sheet_data->class_name);
+    }
+    
+    char level_background_str[100];
+    sprintf(level_background_str, "Livello %d • %s", sheet_data->level, sheet_data->background);
+    
+    GtkWidget *race_class_label = gtk_label_new(race_class_str);
+    gtk_widget_add_css_class(race_class_label, "title-3");
+    gtk_widget_add_css_class(race_class_label, "character-race-class");
+    gtk_grid_attach(GTK_GRID(info_grid), race_class_label, 0, 0, 1, 1);
+    
+    GtkWidget *level_bg_label = gtk_label_new(level_background_str);
+    gtk_widget_add_css_class(level_bg_label, "title-4");
+    gtk_widget_add_css_class(level_bg_label, "character-details");
+    gtk_grid_attach(GTK_GRID(info_grid), level_bg_label, 0, 1, 1, 1);
+    
+    // === STATISTICHE PRINCIPALI ===
+    GtkWidget *stats_section = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+    gtk_widget_set_margin_start(stats_section, 32);
+    gtk_widget_set_margin_end(stats_section, 32);
+    gtk_widget_set_margin_bottom(stats_section, 24);
+    gtk_box_append(GTK_BOX(main_box), stats_section);
+    
+    GtkWidget *stats_title = gtk_label_new("Caratteristiche");
+    gtk_widget_add_css_class(stats_title, "heading");
+    gtk_widget_set_halign(stats_title, GTK_ALIGN_START);
+    gtk_box_append(GTK_BOX(stats_section), stats_title);
+    
+    // Griglia per le statistiche (3x2)
+    GtkWidget *stats_grid = gtk_grid_new();
+    gtk_grid_set_column_spacing(GTK_GRID(stats_grid), 16);
+    gtk_grid_set_row_spacing(GTK_GRID(stats_grid), 12);
+    gtk_widget_set_halign(stats_grid, GTK_ALIGN_CENTER);
+    gtk_box_append(GTK_BOX(stats_section), stats_grid);
+    
+    for (int i = 0; i < 6; i++) {
+        GtkWidget *stat_card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+        gtk_widget_add_css_class(stat_card, "stat-card");
+        gtk_widget_set_size_request(stat_card, 120, 100);
+        
+        GtkWidget *stat_name = gtk_label_new(STAT_NAMES_FULL[i]);
+        gtk_widget_add_css_class(stat_name, "caption");
+        gtk_widget_add_css_class(stat_name, "dim-label");
+        gtk_widget_set_halign(stat_name, GTK_ALIGN_CENTER);
+        
+        char modifier_str[10];
+        sprintf(modifier_str, "%+d", sheet_data->modifiers[i]);
+        GtkWidget *stat_modifier = gtk_label_new(modifier_str);
+        gtk_widget_add_css_class(stat_modifier, "title-1");
+        gtk_widget_add_css_class(stat_modifier, "stat-modifier");
+        gtk_widget_set_halign(stat_modifier, GTK_ALIGN_CENTER);
+        
+        char value_str[10];
+        sprintf(value_str, "%d", sheet_data->stats[i]);
+        GtkWidget *stat_value = gtk_label_new(value_str);
+        gtk_widget_add_css_class(stat_value, "title-4");
+        gtk_widget_set_halign(stat_value, GTK_ALIGN_CENTER);
+        
+        gtk_box_append(GTK_BOX(stat_card), stat_name);
+        gtk_box_append(GTK_BOX(stat_card), stat_modifier);
+        gtk_box_append(GTK_BOX(stat_card), stat_value);
+        
+        int row = i / 3;
+        int col = i % 3;
+        gtk_grid_attach(GTK_GRID(stats_grid), stat_card, col, row, 1, 1);
+    }
+    
+    // === STATISTICHE COMBATTIMENTO ===
+    GtkWidget *combat_section = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+    gtk_widget_set_margin_start(combat_section, 32);
+    gtk_widget_set_margin_end(combat_section, 32);
+    gtk_widget_set_margin_bottom(combat_section, 24);
+    gtk_box_append(GTK_BOX(main_box), combat_section);
+    
+    GtkWidget *combat_title = gtk_label_new("Statistiche di Combattimento");
+    gtk_widget_add_css_class(combat_title, "heading");
+    gtk_widget_set_halign(combat_title, GTK_ALIGN_START);
+    gtk_box_append(GTK_BOX(combat_section), combat_title);
+    
+    GtkWidget *combat_grid = gtk_grid_new();
+    gtk_grid_set_column_spacing(GTK_GRID(combat_grid), 24);
+    gtk_grid_set_row_spacing(GTK_GRID(combat_grid), 12);
+    gtk_widget_set_halign(combat_grid, GTK_ALIGN_CENTER);
+    gtk_box_append(GTK_BOX(combat_section), combat_grid);
+    
+    // Carte per le statistiche di combattimento
+    struct CombatStat {
+        const char* name;
+        int value;
+        const char* unit;
+    } combat_stats[] = {
+        {"Classe Armatura", sheet_data->armor_class, ""},
+        {"Punti Ferita", sheet_data->hit_points, ""},
+        {"Iniziativa", sheet_data->initiative, ""},
+        {"Velocità", sheet_data->speed, "piedi"},
+        {"Bonus Competenza", sheet_data->proficiency_bonus, ""}
+    };
+    
+    for (int i = 0; i < 5; i++) {
+        GtkWidget *combat_card = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
+        gtk_widget_add_css_class(combat_card, "combat-stat-card");
+        gtk_widget_set_size_request(combat_card, 140, 80);
+        
+        GtkWidget *combat_name = gtk_label_new(combat_stats[i].name);
+        gtk_widget_add_css_class(combat_name, "caption");
+        gtk_widget_add_css_class(combat_name, "dim-label");
+        gtk_widget_set_halign(combat_name, GTK_ALIGN_CENTER);
+        
+        char value_str[20];
+        if (strlen(combat_stats[i].unit) > 0) {
+            sprintf(value_str, "%d %s", combat_stats[i].value, combat_stats[i].unit);
+        } else {
+            sprintf(value_str, "%d", combat_stats[i].value);
+        }
+        GtkWidget *combat_value = gtk_label_new(value_str);
+        gtk_widget_add_css_class(combat_value, "title-2");
+        gtk_widget_add_css_class(combat_value, "combat-value");
+        gtk_widget_set_halign(combat_value, GTK_ALIGN_CENTER);
+        
+        gtk_box_append(GTK_BOX(combat_card), combat_name);
+        gtk_box_append(GTK_BOX(combat_card), combat_value);
+        
+        int row = i / 3;
+        int col = i % 3;
+        gtk_grid_attach(GTK_GRID(combat_grid), combat_card, col, row, 1, 1);
+    }
+    
+    // === TIRI SALVEZZA ===
+    GtkWidget *saves_section = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+    gtk_widget_set_margin_start(saves_section, 32);
+    gtk_widget_set_margin_end(saves_section, 32);
+    gtk_widget_set_margin_bottom(saves_section, 24);
+    gtk_box_append(GTK_BOX(main_box), saves_section);
+    
+    GtkWidget *saves_title = gtk_label_new("Tiri Salvezza");
+    gtk_widget_add_css_class(saves_title, "heading");
+    gtk_widget_set_halign(saves_title, GTK_ALIGN_START);
+    gtk_box_append(GTK_BOX(saves_section), saves_title);
+    
+    GtkWidget *saves_group = adw_preferences_group_new();
+    gtk_box_append(GTK_BOX(saves_section), saves_group);
+    
+    for (int i = 0; i < 6; i++) {
+        AdwActionRow *save_row = ADW_ACTION_ROW(adw_action_row_new());
+        adw_preferences_row_set_title(ADW_PREFERENCES_ROW(save_row), STAT_NAMES_FULL[i]);
+        
+        char save_str[10];
+        sprintf(save_str, "%+d", sheet_data->saving_throws[i]);
+        adw_action_row_set_subtitle(save_row, save_str);
+        
+        if (sheet_data->saving_throw_proficiencies[i]) {
+            GtkWidget *prof_icon = gtk_image_new_from_icon_name("emblem-default-symbolic");
+            gtk_widget_set_tooltip_text(prof_icon, "Competente");
+            adw_action_row_add_suffix(save_row, prof_icon);
+        }
+        
+        adw_preferences_group_add(ADW_PREFERENCES_GROUP(saves_group), GTK_WIDGET(save_row));
+    }
+    
+    // === COMPETENZE ===
+    GtkWidget *skills_section = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+    gtk_widget_set_margin_start(skills_section, 32);
+    gtk_widget_set_margin_end(skills_section, 32);
+    gtk_widget_set_margin_bottom(skills_section, 24);
+    gtk_box_append(GTK_BOX(main_box), skills_section);
+    
+    GtkWidget *skills_title = gtk_label_new("Competenze");
+    gtk_widget_add_css_class(skills_title, "heading");
+    gtk_widget_set_halign(skills_title, GTK_ALIGN_START);
+    gtk_box_append(GTK_BOX(skills_section), skills_title);
+    
+    GtkWidget *skills_group = adw_preferences_group_new();
+    gtk_box_append(GTK_BOX(skills_section), skills_group);
+    
+    // Mappa abilità -> caratteristica
+    int skill_to_stat[] = {0, 1, 1, 1, 3, 3, 3, 3, 3, 4, 4, 4, 4, 4, 5, 5, 5, 5};
+    
+    for (int i = 0; i < NUM_SKILLS; i++) {
+        if (sheet_data->skill_proficiencies[i]) {
+            AdwActionRow *skill_row = ADW_ACTION_ROW(adw_action_row_new());
+            adw_preferences_row_set_title(ADW_PREFERENCES_ROW(skill_row), SKILL_NAMES[i]);
+            
+            int skill_modifier = sheet_data->modifiers[skill_to_stat[i]] + sheet_data->proficiency_bonus;
+            char skill_str[10];
+            sprintf(skill_str, "%+d", skill_modifier);
+            adw_action_row_set_subtitle(skill_row, skill_str);
+            
+            GtkWidget *prof_icon = gtk_image_new_from_icon_name("emblem-default-symbolic");
+            gtk_widget_set_tooltip_text(prof_icon, "Competente");
+            adw_action_row_add_suffix(skill_row, prof_icon);
+            
+            adw_preferences_group_add(ADW_PREFERENCES_GROUP(skills_group), GTK_WIDGET(skill_row));
+        }
+    }
+    
+    // === PULSANTI AZIONE ===
+    GtkWidget *actions_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
+    gtk_widget_set_halign(actions_box, GTK_ALIGN_CENTER);
+    gtk_widget_set_margin_start(actions_box, 32);
+    gtk_widget_set_margin_end(actions_box, 32);
+    gtk_widget_set_margin_bottom(actions_box, 32);
+    gtk_box_append(GTK_BOX(main_box), actions_box);
+    
+    GtkWidget *new_character_btn = gtk_button_new_with_label("Nuovo Personaggio");
+    gtk_widget_add_css_class(new_character_btn, "suggested-action");
+    gtk_widget_add_css_class(new_character_btn, "pill");
+    g_signal_connect(new_character_btn, "clicked", G_CALLBACK(on_new_character_clicked), data);
+    
+    GtkWidget *export_btn = gtk_button_new_with_label("Esporta PDF");
+    gtk_widget_add_css_class(export_btn, "pill");
+    g_object_set_data(G_OBJECT(export_btn), "sheet_data", sheet_data);
+    g_signal_connect(export_btn, "clicked", G_CALLBACK(on_export_pdf_clicked), sheet_data);
+    
+    gtk_box_append(GTK_BOX(actions_box), new_character_btn);
+    gtk_box_append(GTK_BOX(actions_box), export_btn);
+    
+    // Cleanup della memoria quando la pagina viene distrutta
+    g_signal_connect_swapped(scrolled_window, "destroy", G_CALLBACK(g_free), sheet_data->name);
+    g_signal_connect_swapped(scrolled_window, "destroy", G_CALLBACK(g_free), sheet_data->race);
+    g_signal_connect_swapped(scrolled_window, "destroy", G_CALLBACK(g_free), sheet_data->subrace);
+    g_signal_connect_swapped(scrolled_window, "destroy", G_CALLBACK(g_free), sheet_data->class_name);
+    g_signal_connect_swapped(scrolled_window, "destroy", G_CALLBACK(g_free), sheet_data->background);
+    g_signal_connect_swapped(scrolled_window, "destroy", G_CALLBACK(g_free), sheet_data->gender);
+    g_signal_connect_swapped(scrolled_window, "destroy", G_CALLBACK(g_free), sheet_data);
+    
+    AdwNavigationPage *page = adw_navigation_page_new(scrolled_window, "Scheda Personaggio");
+    return page;
+}
+
 // Callback per il pulsante finale "Genera Scheda".
 static void on_generate_sheet_clicked(GtkButton *button, gpointer user_data) {
-    g_print("Pulsante 'Genera Scheda' cliccato! La generazione del file .tex è in sviluppo...\n");
-    // Qui si recupereranno i dati da AppData, inclusi data->generated_stats
+    AppData *data = (AppData *)user_data;
+    
+    // Recupera i dati delle competenze dal pulsante stesso (dove vengono passati)
+    SkillsPageData *skills_data = (SkillsPageData *)g_object_get_data(G_OBJECT(button), "skills_data");
+    
+    if (!skills_data) {
+        // Se non riesce a recuperare dal pulsante, cerca nella pagina corrente
+        AdwNavigationPage *current_page = adw_navigation_view_get_visible_page(data->nav_view);
+        GtkWidget *page_content = adw_navigation_page_get_child(current_page);
+        skills_data = (SkillsPageData *)g_object_get_data(G_OBJECT(page_content), "skills_data");
+    }
+    
+    if (!skills_data) {
+        g_warning("Impossibile recuperare i dati delle competenze");
+        return;
+    }
+    
+    // Crea e mostra la scheda del personaggio
+    AdwNavigationPage *sheet_page = create_character_sheet_page(data, skills_data);
+    adw_navigation_view_push(data->nav_view, sheet_page);
 }
 
 
@@ -449,6 +803,39 @@ static void on_generate_sheet_clicked(GtkButton *button, gpointer user_data) {
 static void on_quit_clicked(GtkButton *button, gpointer user_data) {
     AppData *data = (AppData *)user_data;
     gtk_window_destroy(data->main_window);
+}
+
+// Callback per il pulsante "Nuovo Personaggio"
+static void on_new_character_clicked(GtkButton *button, gpointer user_data) {
+    AppData *data = (AppData *)user_data;
+    
+    // Torna alla prima pagina usando pop_to_tag o creando una nuova istanza
+    while (adw_navigation_view_get_navigation_stack(data->nav_view) && 
+           g_list_model_get_n_items(adw_navigation_view_get_navigation_stack(data->nav_view)) > 1) {
+        adw_navigation_view_pop(data->nav_view);
+    }
+    
+    // Reset dei dati
+    gtk_editable_set_text(GTK_EDITABLE(data->entry_nome), "");
+    gtk_drop_down_set_selected(data->dropdown_razza, 0);
+    gtk_drop_down_set_selected(data->dropdown_classe, 0);
+    gtk_drop_down_set_selected(data->dropdown_background, 0);
+    gtk_drop_down_set_selected(data->dropdown_genere, 0);
+    gtk_range_set_value(GTK_RANGE(data->scale_livello), 1);
+    data->stats_are_generated = FALSE;
+    memset(data->generated_stats, 0, sizeof(data->generated_stats));
+}
+
+// Callback per il pulsante "Esporta PDF"
+static void on_export_pdf_clicked(GtkButton *button, gpointer user_data) {
+    CharacterSheetData *sheet_data = (CharacterSheetData *)user_data;
+    
+    // Per ora mostra solo un messaggio, ma qui si potrebbe implementare l'export PDF
+    AdwDialog *dialog = adw_alert_dialog_new("Export PDF", 
+                                            "La funzionalità di export PDF sarà implementata in una versione futura.\n\n"
+                                            "Per ora puoi fare uno screenshot della scheda o copiarla manualmente.");
+    adw_alert_dialog_add_response(ADW_ALERT_DIALOG(dialog), "ok", "OK");
+    adw_dialog_present(dialog, NULL);
 }
 
 // Distruttori per le pagine
@@ -1020,6 +1407,86 @@ static void activate(GtkApplication* app, gpointer user_data) {
         "}"
         "checkbutton.saving-throw-check:checked > check {"
         "  background-color: @theme_selected_bg_color;"
+        "}"
+        ""
+        "/* Stili per la scheda del personaggio */"
+        ".character-sheet {"
+        "  background: linear-gradient(135deg, @theme_bg_color, alpha(@theme_selected_bg_color, 0.1));"
+        "}"
+        ""
+        ".sheet-header {"
+        "  background: linear-gradient(90deg, alpha(@theme_selected_bg_color, 0.2), alpha(@accent_color, 0.1));"
+        "  border-radius: 12px;"
+        "  box-shadow: 0 2px 8px alpha(@theme_fg_color, 0.1);"
+        "}"
+        ""
+        ".character-name {"
+        "  color: @theme_selected_bg_color;"
+        "  font-weight: bold;"
+        "  text-shadow: 0 1px 2px alpha(@theme_fg_color, 0.2);"
+        "}"
+        ""
+        ".character-race-class {"
+        "  color: @accent_color;"
+        "  font-weight: 600;"
+        "}"
+        ""
+        ".character-details {"
+        "  color: alpha(@theme_fg_color, 0.8);"
+        "}"
+        ""
+        ".stat-card {"
+        "  background: @theme_base_color;"
+        "  border: 1px solid alpha(@theme_fg_color, 0.1);"
+        "  border-radius: 8px;"
+        "  padding: 12px;"
+        "  margin: 4px;"
+        "  box-shadow: 0 1px 4px alpha(@theme_fg_color, 0.05);"
+        "  transition: all 200ms ease;"
+        "}"
+        ""
+        ".stat-card:hover {"
+        "  box-shadow: 0 2px 8px alpha(@theme_fg_color, 0.1);"
+        "  transform: translateY(-1px);"
+        "}"
+        ""
+        ".stat-modifier {"
+        "  color: @accent_color;"
+        "  font-weight: bold;"
+        "}"
+        ""
+        ".combat-stat-card {"
+        "  background: linear-gradient(135deg, @theme_base_color, alpha(@accent_color, 0.05));"
+        "  border: 1px solid alpha(@accent_color, 0.2);"
+        "  border-radius: 8px;"
+        "  padding: 12px;"
+        "  margin: 4px;"
+        "  box-shadow: 0 1px 4px alpha(@accent_color, 0.1);"
+        "  transition: all 200ms ease;"
+        "}"
+        ""
+        ".combat-stat-card:hover {"
+        "  box-shadow: 0 2px 8px alpha(@accent_color, 0.15);"
+        "  transform: translateY(-1px);"
+        "}"
+        ""
+        ".combat-value {"
+        "  color: @accent_color;"
+        "  font-weight: bold;"
+        "}"
+        ""
+        "button.pill {"
+        "  border-radius: 20px;"
+        "  padding: 12px 24px;"
+        "  font-weight: 600;"
+        "}"
+        ""
+        ".heading {"
+        "  color: @theme_selected_bg_color;"
+        "  font-weight: bold;"
+        "  border-bottom: 2px solid alpha(@theme_selected_bg_color, 0.3);"
+        "  padding-bottom: 8px;"
+        "  margin-bottom: 12px;"
         "}";
     gtk_css_provider_load_from_string(provider, css);
     gtk_style_context_add_provider_for_display(
@@ -1414,6 +1881,9 @@ static AdwNavigationPage* create_skills_page(AppData *data, const char* razza_sc
         memcpy(page_data->final_stats, data->generated_stats, sizeof(data->generated_stats));
     }
     g_signal_connect(page_vbox, "destroy", G_CALLBACK(on_skills_page_destroy), page_data);
+    
+    // Collega i dati delle competenze al contenitore per poterli recuperare dopo
+    g_object_set_data(G_OBJECT(page_vbox), "skills_data", page_data);
 
     // Box orizzontale per il contenuto principale (Riepilogo | Competenze)
     GtkWidget *main_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 30);
@@ -1570,6 +2040,7 @@ static AdwNavigationPage* create_skills_page(AppData *data, const char* razza_sc
 
     GtkWidget *generate_button = gtk_button_new_with_label("Genera Scheda");
     gtk_widget_add_css_class(generate_button, "suggested-action");
+    g_object_set_data(G_OBJECT(generate_button), "skills_data", page_data);
     g_signal_connect(generate_button, "clicked", G_CALLBACK(on_generate_sheet_clicked), data);
 
     gtk_box_append(GTK_BOX(button_box), back_button);
