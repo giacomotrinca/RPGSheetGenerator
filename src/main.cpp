@@ -669,11 +669,16 @@ static void activate(GtkApplication* app, gpointer user_data) {
     GtkCssProvider *provider = gtk_css_provider_new();
     const char *css =
         "checkbutton.saving-throw-check > check {"
+        "  -gtk-icon-source: none;"
+        "  background-image: none;"
+        "  border-radius: 0;"
         "  min-width: 22px;"
         "  min-height: 22px;"
         "  padding: 0;"
-        "  border-radius: 0px;"
         "  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);"
+        "}"
+        "checkbutton.saving-throw-check:checked > check {"
+        "  background-color: @theme_selected_bg_color;"
         "}";
     gtk_css_provider_load_from_string(provider, css);
     gtk_style_context_add_provider_for_display(
