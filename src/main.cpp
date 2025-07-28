@@ -4,6 +4,20 @@
 #include <time.h>
 #include <math.h>
 
+// --- DEFINIZIONI GLOBALI ---
+const char* SKILL_NAMES[] = {
+    "Atletica", "Acrobazia", "Furtività", "Rapidità di Mano", "Arcano", 
+    "Indagare", "Natura", "Religione", "Storia", "Addestrare Animali", 
+    "Intuizione", "Medicina", "Percezione", "Sopravvivenza", "Inganno", 
+    "Intimidire", "Intrattenere", "Persuasione"
+};
+const int NUM_SKILLS = 18;
+
+const char* STAT_NAMES_FULL[] = {
+    "Forza", "Destrezza", "Costituzione", "Intelligenza", "Saggezza", "Carisma"
+};
+const int NUM_STATS = 6;
+
 // --- LIBRERIA NOMI ---
 // Helper per ottenere un nome casuale da un array.
 static const char* get_random_from_array(const char* arr[], int size) {
@@ -52,7 +66,7 @@ static int get_proficiency_bonus(int level) {
     return 2 + (level - 1) / 4;
 }
 
-
+// --- STRUCT ---
 // Struct per i dati globali dell'applicazione.
 typedef struct {
     GtkWindow *main_window;
@@ -96,12 +110,31 @@ typedef struct {
     GtkWidget *forward_button;
 } StatsPageData;
 
+// Struct per i dati specifici della pagina delle abilità.
+typedef struct {
+    // Dati del personaggio
+    char *race;
+    char *subrace;
+    char *class_name;
+    char *background;
 
-// Dichiarazione anticipata delle funzioni.
+    // Elementi UI
+    GtkCheckButton *st_checks[6];
+    GtkCheckButton *skill_checks[18];
+    GtkWidget *choice_label;
+
+    // Stato
+    int num_skill_choices_total;
+    int num_skill_choices_made;
+    GList *selectable_skills; 
+} SkillsPageData;
+
+
+// --- DICHIARAZIONI ANTICIPATE ---
 static void update_total_scores(StatsPageData *stats_data);
 static void update_forward_button_sensitivity(StatsPageData *stats_data);
 static AdwNavigationPage* create_stats_page(AppData *data, const char* nome_scelto, const char* genere_scelto, int livello_scelto, const char* razza_scelta, const char* subrace_scelta, const char* classe_scelta, const char* background_scelto);
-static AdwNavigationPage* create_skills_page(AppData *data);
+static AdwNavigationPage* create_skills_page(AppData *data, const char* razza_scelta, const char* subrace_scelta, const char* classe_scelta, const char* background_scelto);
 static void on_back_clicked(GtkButton *button, gpointer user_data);
 static void on_stats_avanti_clicked(GtkButton *button, gpointer user_data);
 static void on_generate_sheet_clicked(GtkButton *button, gpointer user_data);
@@ -120,6 +153,99 @@ static char* get_racial_bonus_string(const char* race, const char* subrace);
 static GdkContentProvider* on_drag_prepare(GtkDragSource *source, double x, double y, gpointer user_data);
 static gboolean on_stat_drop(GtkDropTarget *target, const GValue *value, double x, double y, gpointer user_data);
 static GtkWidget* create_draggable_score_label(int score);
+
+// --- FUNZIONI HELPER PER ABILITÀ ---
+static int get_skill_index(const char* name) {
+    for (int i = 0; i < NUM_SKILLS; i++) {
+        if (strcmp(SKILL_NAMES[i], name) == 0) return i;
+    }
+    return -1;
+}
+
+static int get_st_index(const char* name) {
+    for (int i = 0; i < NUM_STATS; i++) {
+        if (strcmp(STAT_NAMES_FULL[i], name) == 0) return i;
+    }
+    return -1;
+}
+
+
+// --- CALLBACKS PAGINA ABILITÀ ---
+static void on_skill_choice_toggled(GtkCheckButton *button, gpointer user_data);
+static void apply_auto_proficiencies(SkillsPageData *page_data);
+
+// Abilita la selezione manuale di tutte le competenze
+static void on_manual_setup_clicked(GtkButton *button, gpointer user_data) {
+    SkillsPageData *page_data = (SkillsPageData *)user_data;
+    
+    // Resetta e abilita tutto
+    for (int i = 0; i < NUM_STATS; i++) {
+        gtk_check_button_set_active(page_data->st_checks[i], FALSE);
+        gtk_widget_set_sensitive(GTK_WIDGET(page_data->st_checks[i]), TRUE);
+    }
+    for (int i = 0; i < NUM_SKILLS; i++) {
+        gtk_check_button_set_active(page_data->skill_checks[i], FALSE);
+        gtk_widget_set_sensitive(GTK_WIDGET(page_data->skill_checks[i]), TRUE);
+    }
+    
+    // Nascondi l'etichetta di scelta
+    gtk_label_set_text(GTK_LABEL(page_data->choice_label), "");
+    page_data->num_skill_choices_total = 0;
+    page_data->num_skill_choices_made = 0;
+    if (page_data->selectable_skills) {
+        g_list_free(page_data->selectable_skills);
+        page_data->selectable_skills = NULL;
+    }
+}
+
+// Applica le competenze automatiche
+static void on_auto_setup_clicked(GtkButton *button, gpointer user_data) {
+    SkillsPageData *page_data = (SkillsPageData *)user_data;
+    
+    // Resetta tutto
+    on_manual_setup_clicked(NULL, page_data);
+
+    // Disabilita tutto prima di applicare le regole
+    for (int i = 0; i < NUM_STATS; i++) gtk_widget_set_sensitive(GTK_WIDGET(page_data->st_checks[i]), FALSE);
+    for (int i = 0; i < NUM_SKILLS; i++) gtk_widget_set_sensitive(GTK_WIDGET(page_data->skill_checks[i]), FALSE);
+    
+    apply_auto_proficiencies(page_data);
+}
+
+// Gestisce il conteggio delle abilità a scelta
+static void on_skill_choice_toggled(GtkCheckButton *button, gpointer user_data) {
+    SkillsPageData *page_data = (SkillsPageData *)user_data;
+
+    if (gtk_check_button_get_active(button)) {
+        page_data->num_skill_choices_made++;
+    } else {
+        page_data->num_skill_choices_made--;
+    }
+
+    // Aggiorna l'etichetta
+    char buffer[100];
+    sprintf(buffer, "Scegli %d abilità (rimanenti: %d)", 
+            page_data->num_skill_choices_total, 
+            page_data->num_skill_choices_total - page_data->num_skill_choices_made);
+    gtk_label_set_text(GTK_LABEL(page_data->choice_label), buffer);
+
+    // Blocca/sblocca le altre opzioni
+    if (page_data->num_skill_choices_made >= page_data->num_skill_choices_total) {
+        for (GList *l = page_data->selectable_skills; l != NULL; l = l->next) {
+            int skill_idx = GPOINTER_TO_INT(l->data);
+            if (!gtk_check_button_get_active(page_data->skill_checks[skill_idx])) {
+                gtk_widget_set_sensitive(GTK_WIDGET(page_data->skill_checks[skill_idx]), FALSE);
+            }
+        }
+    } else {
+        for (GList *l = page_data->selectable_skills; l != NULL; l = l->next) {
+            int skill_idx = GPOINTER_TO_INT(l->data);
+            gtk_widget_set_sensitive(GTK_WIDGET(page_data->skill_checks[skill_idx]), TRUE);
+        }
+    }
+}
+
+// --- LOGICA DI GIOCO E UI ---
 
 // Logica di reset per i punteggi dei dadi.
 static void on_reset_button_clicked(GtkButton *button, gpointer user_data) {
@@ -188,7 +314,28 @@ static void on_back_clicked(GtkButton *button, gpointer user_data) {
 // Callback per il pulsante "Avanti" dalla pagina delle statistiche.
 static void on_stats_avanti_clicked(GtkButton *button, gpointer user_data) {
     AppData *data = (AppData *)user_data;
-    AdwNavigationPage *skills_page = create_skills_page(data);
+
+    // Rileggi i dati dalla prima pagina perché potrebbero essere cambiati
+    GtkStringList *razze_model = GTK_STRING_LIST(gtk_drop_down_get_model(data->dropdown_razza));
+    guint razza_pos = gtk_drop_down_get_selected(data->dropdown_razza);
+    const char *razza_scelta = gtk_string_list_get_string(razze_model, razza_pos);
+
+    const char *subrace_scelta = "";
+    if (gtk_widget_is_visible(data->row_sottorazza)) {
+        GtkStringList *sottorazze_model = GTK_STRING_LIST(gtk_drop_down_get_model(data->dropdown_sottorazza));
+        guint sottorazza_pos = gtk_drop_down_get_selected(data->dropdown_sottorazza);
+        subrace_scelta = gtk_string_list_get_string(sottorazze_model, sottorazza_pos);
+    }
+
+    GtkStringList *classi_model = GTK_STRING_LIST(gtk_drop_down_get_model(data->dropdown_classe));
+    guint classe_pos = gtk_drop_down_get_selected(data->dropdown_classe);
+    const char *classe_scelta = gtk_string_list_get_string(classi_model, classe_pos);
+
+    GtkStringList *backgrounds_model = GTK_STRING_LIST(gtk_drop_down_get_model(data->dropdown_background));
+    guint background_pos = gtk_drop_down_get_selected(data->dropdown_background);
+    const char *background_scelto = gtk_string_list_get_string(backgrounds_model, background_pos);
+
+    AdwNavigationPage *skills_page = create_skills_page(data, razza_scelta, subrace_scelta, classe_scelta, background_scelto);
     adw_navigation_view_push(data->nav_view, skills_page);
 }
 
@@ -204,17 +351,24 @@ static void on_quit_clicked(GtkButton *button, gpointer user_data) {
     gtk_window_destroy(data->main_window);
 }
 
-// Disconnessione segnali per la pagina delle statistiche.
-static void disconnect_stats_data_signals(StatsPageData *stats_data) {
-    // ... (omesso per brevità, nessuna modifica qui)
-}
-
+// Distruttori per le pagine
 static void on_stats_page_destroy(GtkWidget *widget, gpointer user_data) {
     StatsPageData *stats_data = (StatsPageData *)user_data;
-    // disconnect_stats_data_signals(stats_data); // Disabilitato temporaneamente per semplicità
     g_free(stats_data->race);
     g_free(stats_data->subrace);
     g_free(stats_data);
+}
+
+static void on_skills_page_destroy(GtkWidget *widget, gpointer user_data) {
+    SkillsPageData *page_data = (SkillsPageData *)user_data;
+    g_free(page_data->race);
+    g_free(page_data->subrace);
+    g_free(page_data->class_name);
+    g_free(page_data->background);
+    if (page_data->selectable_skills) {
+        g_list_free(page_data->selectable_skills);
+    }
+    g_free(page_data);
 }
 
 // Funzione che imposta i bonus razziali e la UI per la scelta
@@ -1033,13 +1187,39 @@ static void update_forward_button_sensitivity(StatsPageData *stats_data) {
 }
 
 // Creazione della pagina delle competenze con layout migliorato
-static AdwNavigationPage* create_skills_page(AppData *data) {
+static AdwNavigationPage* create_skills_page(AppData *data, const char* razza_scelta, const char* subrace_scelta, const char* classe_scelta, const char* background_scelto) {
     // Contenitore principale della pagina con margini
     GtkWidget *page_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
+    g_object_set_data(G_OBJECT(page_vbox), "app_data", data);
     gtk_widget_set_margin_start(page_vbox, 24);
     gtk_widget_set_margin_end(page_vbox, 24);
     gtk_widget_set_margin_top(page_vbox, 24);
     gtk_widget_set_margin_bottom(page_vbox, 24);
+
+    SkillsPageData *page_data = g_new0(SkillsPageData, 1);
+    page_data->race = g_strdup(razza_scelta);
+    page_data->subrace = g_strdup(subrace_scelta);
+    page_data->class_name = g_strdup(classe_scelta);
+    page_data->background = g_strdup(background_scelto);
+    g_signal_connect(page_vbox, "destroy", G_CALLBACK(on_skills_page_destroy), page_data);
+
+
+    // Box per i pulsanti di modalità
+    GtkWidget *mode_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_widget_set_halign(mode_box, GTK_ALIGN_CENTER);
+    GtkWidget *auto_button = gtk_button_new_with_label("Selezione Automatica");
+    GtkWidget *manual_button = gtk_button_new_with_label("Selezione Manuale");
+    gtk_box_append(GTK_BOX(mode_box), auto_button);
+    gtk_box_append(GTK_BOX(mode_box), manual_button);
+    gtk_box_append(GTK_BOX(page_vbox), mode_box);
+
+    g_signal_connect(auto_button, "clicked", G_CALLBACK(on_auto_setup_clicked), page_data);
+    g_signal_connect(manual_button, "clicked", G_CALLBACK(on_manual_setup_clicked), page_data);
+
+    // Etichetta per le scelte rimanenti
+    page_data->choice_label = gtk_label_new("");
+    gtk_widget_add_css_class(page_data->choice_label, "title-4");
+    gtk_box_append(GTK_BOX(page_vbox), page_data->choice_label);
 
     // Finestra a scorrimento per contenere la lista di competenze
     GtkWidget *scrolled_window = gtk_scrolled_window_new();
@@ -1056,20 +1236,12 @@ static AdwNavigationPage* create_skills_page(AppData *data) {
     gtk_widget_set_size_request(content_box, 500, -1); // Larghezza fissa per allineare i suffix
     gtk_box_append(GTK_BOX(center_box), content_box);
 
-
-    // Etichetta di intestazione
-    GtkWidget *header_label = gtk_label_new("Competenze e Tiri Salvezza");
-    gtk_widget_add_css_class(header_label, "title-2");
-    gtk_widget_set_halign(header_label, GTK_ALIGN_START);
-    gtk_box_append(GTK_BOX(content_box), header_label);
-
     // Struttura dati per le competenze
     struct SkillGroup {
         const char* characteristic;
-        const char* skills[10]; // Array per contenere i nomi delle competenze
+        const char* skills[10];
     };
 
-    // Definizione delle competenze raggruppate per caratteristica
     const struct SkillGroup skill_data[] = {
         {"Forza", {"Atletica", NULL}},
         {"Destrezza", {"Acrobazia", "Furtività", "Rapidità di Mano", NULL}},
@@ -1077,18 +1249,19 @@ static AdwNavigationPage* create_skills_page(AppData *data) {
         {"Intelligenza", {"Arcano", "Indagare", "Natura", "Religione", "Storia", NULL}},
         {"Saggezza", {"Addestrare Animali", "Intuizione", "Medicina", "Percezione", "Sopravvivenza", NULL}},
         {"Carisma", {"Inganno", "Intimidire", "Intrattenere", "Persuasione", NULL}},
-        {NULL, {NULL}} // Terminatore
+        {NULL, {NULL}} 
     };
 
     // Ciclo per creare i gruppi di preferenze e le righe per ogni competenza
+    int current_skill_idx = 0;
     for (int i = 0; skill_data[i].characteristic != NULL; i++) {
         GtkWidget *group = adw_preferences_group_new();
         adw_preferences_group_set_title(ADW_PREFERENCES_GROUP(group), skill_data[i].characteristic);
         
-        // Aggiunge una checkbox per il tiro salvezza nell'header del gruppo
         GtkWidget *saving_throw_check = gtk_check_button_new();
+        page_data->st_checks[i] = GTK_CHECK_BUTTON(saving_throw_check);
         gtk_widget_set_tooltip_text(saving_throw_check, "Competenza nel Tiro Salvezza");
-        gtk_widget_add_css_class(saving_throw_check, "saving-throw-check"); // Aggiunge la classe CSS
+        gtk_widget_add_css_class(saving_throw_check, "saving-throw-check");
         adw_preferences_group_set_header_suffix(ADW_PREFERENCES_GROUP(group), saving_throw_check);
         
         gtk_box_append(GTK_BOX(content_box), group);
@@ -1098,6 +1271,7 @@ static AdwNavigationPage* create_skills_page(AppData *data) {
             adw_preferences_row_set_title(ADW_PREFERENCES_ROW(row), skill_data[i].skills[j]);
             
             GtkWidget *check = gtk_check_button_new();
+            page_data->skill_checks[current_skill_idx++] = GTK_CHECK_BUTTON(check);
             adw_action_row_add_suffix(row, check);
             adw_action_row_set_activatable_widget(row, check);
 
@@ -1119,10 +1293,124 @@ static AdwNavigationPage* create_skills_page(AppData *data) {
     gtk_box_append(GTK_BOX(button_box), back_button);
     gtk_box_append(GTK_BOX(button_box), generate_button);
     gtk_box_append(GTK_BOX(page_vbox), button_box);
+    
+    // Imposta la modalità manuale di default
+    on_manual_setup_clicked(NULL, page_data);
 
-    // Creazione della pagina di navigazione
     AdwNavigationPage *page = adw_navigation_page_new(page_vbox, "Competenze");
     return page;
+}
+
+// Applica automaticamente le competenze in base a classe e background
+static void apply_auto_proficiencies(SkillsPageData *page_data) {
+    // --- Background Proficiencies ---
+    const char* bg_skills[2] = {NULL, NULL};
+    if (strcmp(page_data->background, "Accolito") == 0) { bg_skills[0] = "Intuizione"; bg_skills[1] = "Religione"; }
+    else if (strcmp(page_data->background, "Artigiano di Gilda") == 0) { bg_skills[0] = "Intuizione"; bg_skills[1] = "Persuasione"; }
+    else if (strcmp(page_data->background, "Ciarlatano") == 0) { bg_skills[0] = "Inganno"; bg_skills[1] = "Rapidità di Mano"; }
+    else if (strcmp(page_data->background, "Criminale") == 0) { bg_skills[0] = "Furtività"; bg_skills[1] = "Inganno"; }
+    else if (strcmp(page_data->background, "Eremita") == 0) { bg_skills[0] = "Medicina"; bg_skills[1] = "Religione"; }
+    else if (strcmp(page_data->background, "Eroe Popolare") == 0) { bg_skills[0] = "Addestrare Animali"; bg_skills[1] = "Sopravvivenza"; }
+    else if (strcmp(page_data->background, "Forestiero") == 0) { bg_skills[0] = "Atletica"; bg_skills[1] = "Sopravvivenza"; }
+    else if (strcmp(page_data->background, "Intrattenitore") == 0) { bg_skills[0] = "Acrobazia"; bg_skills[1] = "Intrattenere"; }
+    else if (strcmp(page_data->background, "Monello") == 0) { bg_skills[0] = "Furtività"; bg_skills[1] = "Rapidità di Mano"; }
+    else if (strcmp(page_data->background, "Nobile") == 0) { bg_skills[0] = "Persuasione"; bg_skills[1] = "Storia"; }
+    else if (strcmp(page_data->background, "Sapiente") == 0) { bg_skills[0] = "Arcano"; bg_skills[1] = "Storia"; }
+    else if (strcmp(page_data->background, "Soldato") == 0) { bg_skills[0] = "Atletica"; bg_skills[1] = "Intimidire"; }
+
+    for (int i = 0; i < 2; i++) {
+        if (bg_skills[i]) {
+            int idx = get_skill_index(bg_skills[i]);
+            if (idx != -1) {
+                gtk_check_button_set_active(page_data->skill_checks[idx], TRUE);
+            }
+        }
+    }
+
+    // --- Class Proficiencies ---
+    const char* class_sts[2] = {NULL, NULL};
+    const char** skill_choices = NULL;
+    int num_choices = 0;
+    
+    if (strcmp(page_data->class_name, "Barbaro") == 0) {
+        class_sts[0] = "Forza"; class_sts[1] = "Costituzione"; num_choices = 2;
+        static const char* choices[] = {"Addestrare Animali", "Atletica", "Intimidire", "Natura", "Percezione", "Sopravvivenza", NULL}; skill_choices = choices;
+    } else if (strcmp(page_data->class_name, "Bardo") == 0) {
+        class_sts[0] = "Destrezza"; class_sts[1] = "Carisma"; num_choices = 3;
+        // Qualsiasi abilità
+    } else if (strcmp(page_data->class_name, "Chierico") == 0) {
+        class_sts[0] = "Saggezza"; class_sts[1] = "Carisma"; num_choices = 2;
+        static const char* choices[] = {"Intuizione", "Medicina", "Religione", "Storia", NULL}; skill_choices = choices;
+    } else if (strcmp(page_data->class_name, "Druido") == 0) {
+        class_sts[0] = "Intelligenza"; class_sts[1] = "Saggezza"; num_choices = 2;
+        static const char* choices[] = {"Addestrare Animali", "Arcano", "Intuizione", "Medicina", "Natura", "Percezione", "Religione", "Sopravvivenza", NULL}; skill_choices = choices;
+    } else if (strcmp(page_data->class_name, "Guerriero") == 0) {
+        class_sts[0] = "Forza"; class_sts[1] = "Costituzione"; num_choices = 2;
+        static const char* choices[] = {"Acrobazia", "Addestrare Animali", "Atletica", "Intimidire", "Intuizione", "Percezione", "Sopravvivenza", "Storia", NULL}; skill_choices = choices;
+    } else if (strcmp(page_data->class_name, "Ladro") == 0) {
+        class_sts[0] = "Destrezza"; class_sts[1] = "Intelligenza"; num_choices = 4;
+        static const char* choices[] = {"Acrobazia", "Atletica", "Furtività", "Indagare", "Inganno", "Intimidire", "Intrattenere", "Intuizione", "Percezione", "Persuasione", "Rapidità di Mano", NULL}; skill_choices = choices;
+    } else if (strcmp(page_data->class_name, "Mago") == 0) {
+        class_sts[0] = "Intelligenza"; class_sts[1] = "Saggezza"; num_choices = 2;
+        static const char* choices[] = {"Arcano", "Indagare", "Intuizione", "Medicina", "Religione", "Storia", NULL}; skill_choices = choices;
+    } else if (strcmp(page_data->class_name, "Monaco") == 0) {
+        class_sts[0] = "Forza"; class_sts[1] = "Destrezza"; num_choices = 2;
+        static const char* choices[] = {"Acrobazia", "Atletica", "Furtività", "Religione", "Storia", "Intuizione", NULL}; skill_choices = choices;
+    } else if (strcmp(page_data->class_name, "Paladino") == 0) {
+        class_sts[0] = "Saggezza"; class_sts[1] = "Carisma"; num_choices = 2;
+        static const char* choices[] = {"Atletica", "Intimidire", "Intuizione", "Medicina", "Persuasione", "Religione", NULL}; skill_choices = choices;
+    } else if (strcmp(page_data->class_name, "Ranger") == 0) {
+        class_sts[0] = "Forza"; class_sts[1] = "Destrezza"; num_choices = 3;
+        static const char* choices[] = {"Addestrare Animali", "Atletica", "Furtività", "Indagare", "Intuizione", "Natura", "Percezione", "Sopravvivenza", NULL}; skill_choices = choices;
+    } else if (strcmp(page_data->class_name, "Stregone") == 0) {
+        class_sts[0] = "Costituzione"; class_sts[1] = "Carisma"; num_choices = 2;
+        static const char* choices[] = {"Arcano", "Inganno", "Intimidire", "Intuizione", "Persuasione", "Religione", NULL}; skill_choices = choices;
+    } else if (strcmp(page_data->class_name, "Warlock") == 0) {
+        class_sts[0] = "Saggezza"; class_sts[1] = "Carisma"; num_choices = 2;
+        static const char* choices[] = {"Arcano", "Indagare", "Inganno", "Intimidire", "Natura", "Religione", "Storia", NULL}; skill_choices = choices;
+    }
+
+    for (int i = 0; i < 2; i++) {
+        if (class_sts[i]) {
+            int idx = get_st_index(class_sts[i]);
+            if (idx != -1) gtk_check_button_set_active(page_data->st_checks[idx], TRUE);
+        }
+    }
+    
+    page_data->num_skill_choices_total = num_choices;
+
+    // --- Umano Variante ---
+    if (strcmp(page_data->race, "Umano") == 0 && strcmp(page_data->subrace, "Variante") == 0) {
+        page_data->num_skill_choices_total++;
+    }
+
+    // --- Abilita le scelte ---
+    page_data->selectable_skills = NULL;
+    if (skill_choices != NULL) {
+        for (int i = 0; skill_choices[i] != NULL; i++) {
+            int idx = get_skill_index(skill_choices[i]);
+            if (idx != -1 && !gtk_check_button_get_active(page_data->skill_checks[idx])) {
+                page_data->selectable_skills = g_list_append(page_data->selectable_skills, GINT_TO_POINTER(idx));
+            }
+        }
+    } else if (strcmp(page_data->class_name, "Bardo") == 0 || (strcmp(page_data->race, "Umano") == 0 && strcmp(page_data->subrace, "Variante") == 0)) {
+        // Se Bardo o Umano Variante, tutte le abilità non già prese sono selezionabili
+        for (int i = 0; i < NUM_SKILLS; i++) {
+            if (!gtk_check_button_get_active(page_data->skill_checks[i])) {
+                 page_data->selectable_skills = g_list_append(page_data->selectable_skills, GINT_TO_POINTER(i));
+            }
+        }
+    }
+
+    for (GList *l = page_data->selectable_skills; l != NULL; l = l->next) {
+        int skill_idx = GPOINTER_TO_INT(l->data);
+        gtk_widget_set_sensitive(GTK_WIDGET(page_data->skill_checks[skill_idx]), TRUE);
+        g_signal_connect(page_data->skill_checks[skill_idx], "toggled", G_CALLBACK(on_skill_choice_toggled), page_data);
+    }
+
+    // Aggiorna l'etichetta
+    page_data->num_skill_choices_made = 0;
+    on_skill_choice_toggled(NULL, page_data);
 }
 
 int main(int argc, char **argv) {
