@@ -79,6 +79,10 @@ typedef struct {
     GtkScale *scale_livello;
     GtkWidget *row_sottorazza;
     GtkDropDown *dropdown_sottorazza;
+    GtkWidget *avanti_button;
+    GtkWidget *random_method_box; // NUOVO: Box per i pulsanti di generazione casuale
+    int generated_stats[6];
+    gboolean stats_are_generated;
 } AppData;
 
 // Struct per i dati specifici della pagina delle statistiche.
@@ -100,6 +104,8 @@ typedef struct {
     GtkWidget *total_score_labels_roll[6];
     GtkWidget *modifier_labels_roll[6];
     GtkWidget *reset_button_rolling;
+    GtkWidget *roll_button;
+    GtkWidget *auto_assign_rolling_button;
     
     // Standard Array
     GtkFlowBox *standard_scores_flowbox;
@@ -107,7 +113,7 @@ typedef struct {
     GtkWidget *total_score_labels_standard[6];
     GtkWidget *modifier_labels_standard[6];
     GtkWidget *reset_button_standard;
-    GtkWidget *auto_assign_button;
+    GtkWidget *auto_assign_standard_button; // Rinominato
 
     // Comuni
     GtkDropDown *method_dropdown;
@@ -127,6 +133,7 @@ typedef struct {
     char *subrace;
     char *class_name;
     char *background;
+    int final_stats[6]; // NUOVO: Per conservare le statistiche finali
 
     // Elementi UI
     GtkCheckButton *st_checks[6];
@@ -158,8 +165,10 @@ static void on_random_name_clicked(GtkButton *button, gpointer user_data);
 static void on_randomize_all_clicked(GtkButton *button, gpointer user_data);
 static void on_racial_bonus_choice_toggled(GtkCheckButton *button, gpointer user_data);
 static char* get_racial_bonus_string(const char* race, const char* subrace);
-static void on_auto_assign_clicked(GtkButton *button, gpointer user_data);
+static void on_auto_assign_standard_clicked(GtkButton *button, gpointer user_data);
+static void on_auto_assign_rolling_clicked(GtkButton *button, gpointer user_data);
 static void on_reset_standard_clicked(GtkButton *button, gpointer user_data);
+static void on_random_method_chosen(GtkButton *button, gpointer user_data);
 
 
 // Funzioni per il Drag-and-Drop
@@ -293,6 +302,13 @@ static void on_reset_button_clicked(GtkButton *button, gpointer user_data) {
             gtk_check_button_set_active(stats_data->stat_choice_checks[i], FALSE);
         }
     }
+    
+    // Mostra di nuovo il pulsante per lanciare i dadi e nascondi quello di assegnazione
+    gtk_widget_set_visible(stats_data->roll_button, TRUE);
+    gtk_widget_set_visible(stats_data->auto_assign_rolling_button, FALSE);
+    gtk_widget_set_visible(GTK_WIDGET(stats_data->rolls_flowbox), TRUE);
+
+
     update_total_scores(stats_data);
     update_forward_button_sensitivity(stats_data);
 }
@@ -360,6 +376,7 @@ static void on_avanti_clicked(GtkButton *button, gpointer user_data) {
     guint background_pos = gtk_drop_down_get_selected(data->dropdown_background);
     const char *background_scelto = gtk_string_list_get_string(backgrounds_model, background_pos);
 
+    data->stats_are_generated = FALSE; // L'utente sta procedendo manualmente
     AdwNavigationPage *stats_page = create_stats_page(data, nome_scelto, genere_scelto, livello_scelto, razza_scelta, subrace_scelta, classe_scelta, background_scelto);
     adw_navigation_view_push(data->nav_view, stats_page);
 }
@@ -373,6 +390,29 @@ static void on_back_clicked(GtkButton *button, gpointer user_data) {
 // Callback per il pulsante "Avanti" dalla pagina delle statistiche.
 static void on_stats_avanti_clicked(GtkButton *button, gpointer user_data) {
     AppData *data = (AppData *)user_data;
+
+    // Recupera i dati della pagina delle statistiche per calcolare i punteggi finali
+    AdwNavigationPage* current_page = adw_navigation_view_get_visible_page(data->nav_view);
+    GtkWidget* page_vbox = adw_navigation_page_get_child(current_page);
+    StatsPageData *stats_data = (StatsPageData *)g_object_get_data(G_OBJECT(page_vbox), "stats_data");
+
+    if (!stats_data) return; // Sicurezza
+
+    // Calcola i punteggi finali e salvali in AppData
+    update_total_scores(stats_data); // Assicura che le label siano aggiornate
+    
+    gboolean is_standard = gtk_widget_is_visible(stats_data->standard_array_box);
+    gboolean is_point_buy = gtk_widget_is_visible(stats_data->point_buy_box);
+    
+    for(int i=0; i<6; i++) {
+        const char* total_str;
+        if(is_point_buy) total_str = gtk_label_get_text(GTK_LABEL(stats_data->total_score_labels_pb[i]));
+        else if(is_standard) total_str = gtk_label_get_text(GTK_LABEL(stats_data->total_score_labels_standard[i]));
+        else total_str = gtk_label_get_text(GTK_LABEL(stats_data->total_score_labels_roll[i]));
+        data->generated_stats[i] = atoi(total_str);
+    }
+    data->stats_are_generated = TRUE;
+
 
     // Rileggi i dati dalla prima pagina perché potrebbero essere cambiati
     GtkStringList *razze_model = GTK_STRING_LIST(gtk_drop_down_get_model(data->dropdown_razza));
@@ -401,6 +441,7 @@ static void on_stats_avanti_clicked(GtkButton *button, gpointer user_data) {
 // Callback per il pulsante finale "Genera Scheda".
 static void on_generate_sheet_clicked(GtkButton *button, gpointer user_data) {
     g_print("Pulsante 'Genera Scheda' cliccato! La generazione del file .tex è in sviluppo...\n");
+    // Qui si recupereranno i dati da AppData, inclusi data->generated_stats
 }
 
 
@@ -526,6 +567,7 @@ static AdwNavigationPage* create_stats_page(AppData *data, const char* nome_scel
     gtk_widget_set_margin_top(page_vbox, 24);
     gtk_widget_set_margin_bottom(page_vbox, 24);
     g_signal_connect(page_vbox, "destroy", G_CALLBACK(on_stats_page_destroy), stats_data);
+    g_object_set_data(G_OBJECT(page_vbox), "stats_data", stats_data); // Associa i dati alla pagina
 
     stats_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 30);
     gtk_widget_set_halign(stats_hbox, GTK_ALIGN_CENTER);
@@ -602,8 +644,8 @@ static AdwNavigationPage* create_stats_page(AppData *data, const char* nome_scel
     gtk_box_append(GTK_BOX(right_vbox), stats_data->standard_array_box);
 
     GtkWidget *standard_actions_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
-    stats_data->auto_assign_button = gtk_button_new_with_label("Assegnazione Automatica");
-    g_signal_connect(stats_data->auto_assign_button, "clicked", G_CALLBACK(on_auto_assign_clicked), stats_data);
+    stats_data->auto_assign_standard_button = gtk_button_new_with_label("Assegnazione Automatica");
+    g_signal_connect(stats_data->auto_assign_standard_button, "clicked", G_CALLBACK(on_auto_assign_standard_clicked), stats_data);
 
     stats_data->standard_scores_flowbox = GTK_FLOW_BOX(gtk_flow_box_new());
     gtk_flow_box_set_max_children_per_line(stats_data->standard_scores_flowbox, 6);
@@ -615,7 +657,7 @@ static AdwNavigationPage* create_stats_page(AppData *data, const char* nome_scel
         gtk_flow_box_insert(stats_data->standard_scores_flowbox, label, -1);
     }
 
-    gtk_box_append(GTK_BOX(standard_actions_box), stats_data->auto_assign_button);
+    gtk_box_append(GTK_BOX(standard_actions_box), stats_data->auto_assign_standard_button);
     gtk_box_append(GTK_BOX(standard_actions_box), GTK_WIDGET(stats_data->standard_scores_flowbox));
     gtk_box_append(GTK_BOX(stats_data->standard_array_box), standard_actions_box);
 
@@ -697,12 +739,18 @@ static AdwNavigationPage* create_stats_page(AppData *data, const char* nome_scel
     gtk_widget_set_visible(stats_data->rolling_box, FALSE);
 
     GtkWidget *roll_actions_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
-    GtkWidget *roll_button = gtk_button_new_with_label("Lancia i Dadi");
+    stats_data->roll_button = gtk_button_new_with_label("Lancia i Dadi");
+    stats_data->auto_assign_rolling_button = gtk_button_new_with_label("Assegnazione Automatica");
+    gtk_widget_set_visible(stats_data->auto_assign_rolling_button, FALSE);
+
     stats_data->rolls_flowbox = GTK_FLOW_BOX(gtk_flow_box_new());
     gtk_flow_box_set_max_children_per_line(stats_data->rolls_flowbox, 6);
     gtk_flow_box_set_selection_mode(stats_data->rolls_flowbox, GTK_SELECTION_NONE);
-    g_signal_connect(roll_button, "clicked", G_CALLBACK(on_roll_dice_clicked), stats_data);
-    gtk_box_append(GTK_BOX(roll_actions_box), roll_button);
+    g_signal_connect(stats_data->roll_button, "clicked", G_CALLBACK(on_roll_dice_clicked), stats_data);
+    g_signal_connect(stats_data->auto_assign_rolling_button, "clicked", G_CALLBACK(on_auto_assign_rolling_clicked), stats_data);
+    
+    gtk_box_append(GTK_BOX(roll_actions_box), stats_data->roll_button);
+    gtk_box_append(GTK_BOX(roll_actions_box), stats_data->auto_assign_rolling_button);
     gtk_box_append(GTK_BOX(roll_actions_box), GTK_WIDGET(stats_data->rolls_flowbox));
     gtk_box_append(GTK_BOX(stats_data->rolling_box), roll_actions_box);
 
@@ -823,7 +871,7 @@ static void on_race_changed(GObject *source_object, GParamSpec *pspec, gpointer 
 // Creazione della pagina iniziale di selezione.
 static AdwNavigationPage* create_selections_page(AppData *data) {
     AdwNavigationPage *content;
-    GtkWidget *content_box, *avanti_button;
+    GtkWidget *content_box;
 
     content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
     gtk_widget_set_margin_start(content_box, 24);
@@ -836,6 +884,25 @@ static AdwNavigationPage* create_selections_page(AppData *data) {
     gtk_widget_set_halign(randomize_all_button, GTK_ALIGN_CENTER);
     g_signal_connect(randomize_all_button, "clicked", G_CALLBACK(on_randomize_all_clicked), data);
     gtk_box_append(GTK_BOX(content_box), randomize_all_button);
+
+    // --- Box per i pulsanti di generazione casuale ---
+    data->random_method_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
+    gtk_widget_set_halign(data->random_method_box, GTK_ALIGN_CENTER);
+    gtk_widget_set_margin_top(data->random_method_box, 6);
+    gtk_widget_set_margin_bottom(data->random_method_box, 6);
+
+    GtkWidget *roll_dice_button = gtk_button_new_with_label("Tiro dei Dadi");
+    g_object_set_data(G_OBJECT(roll_dice_button), "app_data", data);
+    g_signal_connect(roll_dice_button, "clicked", G_CALLBACK(on_random_method_chosen), GINT_TO_POINTER(0)); // 0 per dadi
+
+    GtkWidget *standard_array_button = gtk_button_new_with_label("Vettore Standard");
+    g_object_set_data(G_OBJECT(standard_array_button), "app_data", data);
+    g_signal_connect(standard_array_button, "clicked", G_CALLBACK(on_random_method_chosen), GINT_TO_POINTER(1)); // 1 per vettore
+
+    gtk_box_append(GTK_BOX(data->random_method_box), roll_dice_button);
+    gtk_box_append(GTK_BOX(data->random_method_box), standard_array_button);
+    gtk_box_append(GTK_BOX(content_box), data->random_method_box);
+    gtk_widget_set_visible(data->random_method_box, FALSE); // Nascosto all'inizio
 
     GtkWidget* label_nome = gtk_label_new("Nome Personaggio");
     gtk_widget_add_css_class(label_nome, "title-4");
@@ -915,12 +982,12 @@ static AdwNavigationPage* create_selections_page(AppData *data) {
     gtk_drop_down_set_selected(data->dropdown_background, 0);
     gtk_box_append(GTK_BOX(content_box), GTK_WIDGET(data->dropdown_background));
 
-    avanti_button = gtk_button_new_with_label("Avanti");
-    gtk_widget_add_css_class(avanti_button, "suggested-action");
-    gtk_widget_set_valign(avanti_button, GTK_ALIGN_END);
-    gtk_widget_set_vexpand(avanti_button, TRUE);
-    g_signal_connect(avanti_button, "clicked", G_CALLBACK(on_avanti_clicked), data);
-    gtk_box_append(GTK_BOX(content_box), avanti_button);
+    data->avanti_button = gtk_button_new_with_label("Avanti");
+    gtk_widget_add_css_class(data->avanti_button, "suggested-action");
+    gtk_widget_set_valign(data->avanti_button, GTK_ALIGN_END);
+    gtk_widget_set_vexpand(data->avanti_button, TRUE);
+    g_signal_connect(data->avanti_button, "clicked", G_CALLBACK(on_avanti_clicked), data);
+    gtk_box_append(GTK_BOX(content_box), data->avanti_button);
 
     content = adw_navigation_page_new(content_box, "Crea Personaggio");
     return content;
@@ -1002,6 +1069,10 @@ static void on_randomize_all_clicked(GtkButton *button, gpointer user_data) {
     guint backgrounds_count = g_list_model_get_n_items(G_LIST_MODEL(backgrounds_model));
     if (backgrounds_count > 0) gtk_drop_down_set_selected(data->dropdown_background, rand() % backgrounds_count);
     on_random_name_clicked(NULL, data);
+
+    // Mostra i pulsanti di generazione e nascondi "Avanti"
+    gtk_widget_set_visible(data->avanti_button, FALSE);
+    gtk_widget_set_visible(data->random_method_box, TRUE);
 }
 
 // Callback per il pulsante di generazione nome casuale.
@@ -1088,6 +1159,10 @@ static void on_roll_dice_clicked(GtkButton *button, gpointer user_data) {
         gtk_flow_box_insert(stats_data->rolls_flowbox, label, -1);
     }
     gtk_widget_set_sensitive(stats_data->reset_button_rolling, TRUE);
+
+    // Nascondi il pulsante di lancio e mostra quello di assegnazione automatica
+    gtk_widget_set_visible(GTK_WIDGET(button), FALSE);
+    gtk_widget_set_visible(stats_data->auto_assign_rolling_button, TRUE);
 }
 
 // Crea un'etichetta trascinabile per un punteggio
@@ -1236,7 +1311,7 @@ static void update_total_scores(StatsPageData *stats_data) {
     }
     // Mezzorco
     else if (strcmp(stats_data->race, "Mezzorco") == 0) {
-        racial_bonuses[0] += 1; // FOR
+        racial_bonuses[0] += 2; // FOR
         racial_bonuses[2] += 1; // COS
     }
     // Tiefling
@@ -1321,11 +1396,10 @@ static void update_forward_button_sensitivity(StatsPageData *stats_data) {
     gtk_widget_set_sensitive(stats_data->forward_button, is_sensitive);
 }
 
-// Creazione della pagina delle competenze con layout migliorato
+// Creazione della pagina delle competenze con layout migliorato e riepilogo
 static AdwNavigationPage* create_skills_page(AppData *data, const char* razza_scelta, const char* subrace_scelta, const char* classe_scelta, const char* background_scelto) {
-    // Contenitore principale della pagina con margini
+    // Contenitore principale della pagina
     GtkWidget *page_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
-    g_object_set_data(G_OBJECT(page_vbox), "app_data", data);
     gtk_widget_set_margin_start(page_vbox, 24);
     gtk_widget_set_margin_end(page_vbox, 24);
     gtk_widget_set_margin_top(page_vbox, 24);
@@ -1336,9 +1410,87 @@ static AdwNavigationPage* create_skills_page(AppData *data, const char* razza_sc
     page_data->subrace = g_strdup(subrace_scelta);
     page_data->class_name = g_strdup(classe_scelta);
     page_data->background = g_strdup(background_scelto);
+    if(data->stats_are_generated) {
+        memcpy(page_data->final_stats, data->generated_stats, sizeof(data->generated_stats));
+    }
     g_signal_connect(page_vbox, "destroy", G_CALLBACK(on_skills_page_destroy), page_data);
 
+    // Box orizzontale per il contenuto principale (Riepilogo | Competenze)
+    GtkWidget *main_hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 30);
+    gtk_widget_set_vexpand(main_hbox, TRUE);
+    gtk_box_append(GTK_BOX(page_vbox), main_hbox);
 
+    // --- PANNELLO SINISTRO: RIEPILOGO ---
+    GtkWidget *summary_scrolled_window = gtk_scrolled_window_new();
+    gtk_widget_set_size_request(summary_scrolled_window, 320, -1);
+    gtk_box_append(GTK_BOX(main_hbox), summary_scrolled_window);
+    
+    GtkWidget *summary_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(summary_scrolled_window), summary_vbox);
+
+    // Gruppo Info Personaggio
+    GtkWidget *summary_group = adw_preferences_group_new();
+    adw_preferences_group_set_title(ADW_PREFERENCES_GROUP(summary_group), "Riepilogo");
+    gtk_box_append(GTK_BOX(summary_vbox), summary_group);
+
+    // Recupera dati aggiuntivi da AppData
+    const char *nome_scelto = gtk_editable_get_text(GTK_EDITABLE(data->entry_nome));
+    int livello_scelto = (int)gtk_range_get_value(GTK_RANGE(data->scale_livello));
+    GtkStringList *generi_model = GTK_STRING_LIST(gtk_drop_down_get_model(data->dropdown_genere));
+    guint genere_pos = gtk_drop_down_get_selected(data->dropdown_genere);
+    const char *genere_scelto = gtk_string_list_get_string(generi_model, genere_pos);
+
+    // Popola le righe del riepilogo
+    GtkWidget *row_nome = adw_action_row_new();
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(row_nome), "Nome");
+    adw_action_row_set_subtitle(ADW_ACTION_ROW(row_nome), strlen(nome_scelto) > 0 ? nome_scelto : "Senza nome");
+    adw_preferences_group_add(ADW_PREFERENCES_GROUP(summary_group), row_nome);
+
+    char razza_display[100];
+    if (strlen(subrace_scelta) > 0) {
+        sprintf(razza_display, "%s (%s)", razza_scelta, subrace_scelta);
+    } else {
+        strcpy(razza_display, razza_scelta);
+    }
+    GtkWidget *row_razza_classe = adw_action_row_new();
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(row_razza_classe), "Razza e Classe");
+    char razza_classe_str[200];
+    sprintf(razza_classe_str, "%s %s", razza_display, classe_scelta);
+    adw_action_row_set_subtitle(ADW_ACTION_ROW(row_razza_classe), razza_classe_str);
+    adw_preferences_group_add(ADW_PREFERENCES_GROUP(summary_group), row_razza_classe);
+
+    GtkWidget *row_liv_back = adw_action_row_new();
+    adw_preferences_row_set_title(ADW_PREFERENCES_ROW(row_liv_back), "Livello e Background");
+    char liv_back_str[200];
+    sprintf(liv_back_str, "Livello %d, %s", livello_scelto, background_scelto);
+    adw_action_row_set_subtitle(ADW_ACTION_ROW(row_liv_back), liv_back_str);
+    adw_preferences_group_add(ADW_PREFERENCES_GROUP(summary_group), row_liv_back);
+
+    // Gruppo Caratteristiche
+    GtkWidget *stats_group = adw_preferences_group_new();
+    adw_preferences_group_set_title(ADW_PREFERENCES_GROUP(stats_group), "Caratteristiche");
+    gtk_box_append(GTK_BOX(summary_vbox), stats_group);
+
+    for (int i = 0; i < NUM_STATS; i++) {
+        AdwActionRow *stat_row = ADW_ACTION_ROW(adw_action_row_new());
+        adw_preferences_row_set_title(ADW_PREFERENCES_ROW(stat_row), STAT_NAMES_FULL[i]);
+
+        int total = page_data->final_stats[i];
+        int modifier = floor((double)(total - 10) / 2.0);
+
+        char subtitle[20];
+        sprintf(subtitle, "%d (%+d)", total, modifier);
+        adw_action_row_set_subtitle(stat_row, subtitle);
+        gtk_widget_add_css_class(GTK_WIDGET(stat_row), "title-4");
+
+        adw_preferences_group_add(ADW_PREFERENCES_GROUP(stats_group), GTK_WIDGET(stat_row));
+    }
+
+    // --- PANNELLO DESTRO: COMPETENZE ---
+    GtkWidget *skills_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 18);
+    gtk_widget_set_hexpand(skills_vbox, TRUE);
+    gtk_box_append(GTK_BOX(main_hbox), skills_vbox);
+    
     // Box per i pulsanti di modalità
     GtkWidget *mode_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 6);
     gtk_widget_set_halign(mode_box, GTK_ALIGN_CENTER);
@@ -1346,7 +1498,7 @@ static AdwNavigationPage* create_skills_page(AppData *data, const char* razza_sc
     GtkWidget *manual_button = gtk_button_new_with_label("Selezione Manuale");
     gtk_box_append(GTK_BOX(mode_box), auto_button);
     gtk_box_append(GTK_BOX(mode_box), manual_button);
-    gtk_box_append(GTK_BOX(page_vbox), mode_box);
+    gtk_box_append(GTK_BOX(skills_vbox), mode_box);
 
     g_signal_connect(auto_button, "clicked", G_CALLBACK(on_auto_setup_clicked), page_data);
     g_signal_connect(manual_button, "clicked", G_CALLBACK(on_manual_setup_clicked), page_data);
@@ -1354,22 +1506,16 @@ static AdwNavigationPage* create_skills_page(AppData *data, const char* razza_sc
     // Etichetta per le scelte rimanenti
     page_data->choice_label = gtk_label_new("");
     gtk_widget_add_css_class(page_data->choice_label, "title-4");
-    gtk_box_append(GTK_BOX(page_vbox), page_data->choice_label);
+    gtk_box_append(GTK_BOX(skills_vbox), page_data->choice_label);
 
     // Finestra a scorrimento per contenere la lista di competenze
-    GtkWidget *scrolled_window = gtk_scrolled_window_new();
-    gtk_widget_set_vexpand(scrolled_window, TRUE);
-    gtk_box_append(GTK_BOX(page_vbox), scrolled_window);
+    GtkWidget *skills_scrolled_window = gtk_scrolled_window_new();
+    gtk_widget_set_vexpand(skills_scrolled_window, TRUE);
+    gtk_box_append(GTK_BOX(skills_vbox), skills_scrolled_window);
 
-    // Box centrato per contenere la lista e forzare l'allineamento
-    GtkWidget *center_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    gtk_widget_set_halign(center_box, GTK_ALIGN_CENTER);
-    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(scrolled_window), center_box);
-
-    // Box per il contenuto con larghezza fissa
+    // Box per il contenuto delle competenze
     GtkWidget *content_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-    gtk_widget_set_size_request(content_box, 500, -1); // Larghezza fissa per allineare i suffix
-    gtk_box_append(GTK_BOX(center_box), content_box);
+    gtk_scrolled_window_set_child(GTK_SCROLLED_WINDOW(skills_scrolled_window), content_box);
 
     // Struttura dati per le competenze
     struct SkillGroup {
@@ -1433,7 +1579,7 @@ static AdwNavigationPage* create_skills_page(AppData *data, const char* razza_sc
     // Imposta la modalità manuale di default
     on_manual_setup_clicked(NULL, page_data);
 
-    AdwNavigationPage *page = adw_navigation_page_new(page_vbox, "Competenze");
+    AdwNavigationPage *page = adw_navigation_page_new(page_vbox, "Competenze e Riepilogo");
     return page;
 }
 
@@ -1562,7 +1708,7 @@ static void apply_auto_proficiencies(SkillsPageData *page_data) {
 }
 
 // Assegna automaticamente i punteggi del Vettore Standard in base alla classe
-static void on_auto_assign_clicked(GtkButton *button, gpointer user_data) {
+static void on_auto_assign_standard_clicked(GtkButton *button, gpointer user_data) {
     StatsPageData *stats_data = (StatsPageData *)user_data;
     on_reset_standard_clicked(NULL, stats_data);
 
@@ -1599,6 +1745,184 @@ static void on_auto_assign_clicked(GtkButton *button, gpointer user_data) {
     update_total_scores(stats_data);
     update_forward_button_sensitivity(stats_data);
 }
+
+// Helper per qsort
+static int compare_ints_desc(const void *a, const void *b) {
+    return (*(int*)b - *(int*)a);
+}
+
+// Assegna automaticamente i punteggi tirati con i dadi
+static void on_auto_assign_rolling_clicked(GtkButton *button, gpointer user_data) {
+    StatsPageData *stats_data = (StatsPageData *)user_data;
+
+    // 1. Recupera i punteggi dal flowbox
+    int rolled_scores[6];
+    int score_count = 0;
+    GtkWidget *child = gtk_widget_get_first_child(GTK_WIDGET(stats_data->rolls_flowbox));
+    while (child != NULL && score_count < 6) {
+        rolled_scores[score_count++] = atoi(gtk_label_get_text(GTK_LABEL(child)));
+        child = gtk_widget_get_next_sibling(child);
+    }
+    if (score_count != 6) return; // Non dovrebbe succedere
+
+    // 2. Ordina i punteggi
+    qsort(rolled_scores, 6, sizeof(int), compare_ints_desc);
+
+    // 3. Ottieni la priorità della classe
+    int priority[6] = {0, 1, 2, 3, 4, 5};
+    const char* class_name = stats_data->class_name;
+    if (strcmp(class_name, "Guerriero") == 0 || strcmp(class_name, "Barbaro") == 0 || strcmp(class_name, "Paladino") == 0) {
+        int p[] = {0, 2, 1, 4, 5, 3}; memcpy(priority, p, sizeof(p));
+    } else if (strcmp(class_name, "Ladro") == 0 || strcmp(class_name, "Ranger") == 0 || strcmp(class_name, "Monaco") == 0) {
+        int p[] = {1, 4, 2, 0, 3, 5}; memcpy(priority, p, sizeof(p));
+    } else if (strcmp(class_name, "Bardo") == 0 || strcmp(class_name, "Stregone") == 0 || strcmp(class_name, "Warlock") == 0) {
+        int p[] = {5, 1, 2, 4, 3, 0}; memcpy(priority, p, sizeof(p));
+    } else if (strcmp(class_name, "Chierico") == 0 || strcmp(class_name, "Druido") == 0) {
+        int p[] = {4, 2, 1, 0, 5, 3}; memcpy(priority, p, sizeof(p));
+    } else if (strcmp(class_name, "Mago") == 0) {
+        int p[] = {3, 2, 1, 4, 5, 0}; memcpy(priority, p, sizeof(p));
+    }
+
+    // 4. Assegna i punteggi
+    for (int i = 0; i < 6; i++) {
+        char score_str[4];
+        sprintf(score_str, "%d", rolled_scores[i]);
+        gtk_editable_set_text(GTK_EDITABLE(stats_data->stat_entries_rolling[priority[i]]), score_str);
+    }
+    
+    // 5. Aggiorna la UI
+    gtk_widget_set_visible(GTK_WIDGET(stats_data->rolls_flowbox), FALSE);
+    gtk_widget_set_visible(GTK_WIDGET(button), FALSE); // Nascondi il pulsante di assegnazione
+    update_total_scores(stats_data);
+    update_forward_button_sensitivity(stats_data);
+}
+
+// Helper per calcolare i bonus razziali senza UI
+static void get_racial_bonuses_no_ui(const char* race, const char* subrace, int bonuses[6]) {
+    memset(bonuses, 0, sizeof(int) * 6);
+    if (strcmp(race, "Umano") == 0) {
+        if (strcmp(subrace, "Normale") == 0) { for(int i=0; i<6; i++) bonuses[i] = 1; }
+        else { // Variante, sceglie 2 casuali
+            int choice1 = rand() % 6;
+            int choice2;
+            do { choice2 = rand() % 6; } while (choice1 == choice2);
+            bonuses[choice1] += 1;
+            bonuses[choice2] += 1;
+        }
+    }
+    else if (strcmp(race, "Elfo") == 0) {
+        bonuses[1] += 2;
+        if (strcmp(subrace, "Alto Elfo") == 0) bonuses[3] += 1;
+        else if (strcmp(subrace, "Elfo dei Boschi") == 0) bonuses[4] += 1;
+        else if (strcmp(subrace, "Drow (Elfo Oscuro)") == 0) bonuses[5] += 1;
+    }
+    else if (strcmp(race, "Halfling") == 0) {
+        bonuses[1] += 2;
+        if (strcmp(subrace, "Piedelesto") == 0) bonuses[5] += 1;
+        else if (strcmp(subrace, "Tozzo") == 0) bonuses[2] += 1;
+    }
+    else if (strcmp(race, "Nano") == 0) {
+        bonuses[2] += 2;
+        if (strcmp(subrace, "Nano delle Montagne") == 0) bonuses[0] += 2;
+        else if (strcmp(subrace, "Nano delle Colline") == 0) bonuses[4] += 1;
+    }
+    else if (strcmp(race, "Dragonide") == 0) { bonuses[0] += 2; bonuses[5] += 1; }
+    else if (strcmp(race, "Gnomo") == 0) {
+        bonuses[3] += 2;
+        if (strcmp(subrace, "Gnomo delle Rocce") == 0) bonuses[2] += 1;
+        else if (strcmp(subrace, "Gnomo delle Foreste") == 0) bonuses[1] += 1;
+    }
+    else if (strcmp(race, "Mezzelfo") == 0) {
+        bonuses[5] += 2;
+        int choice1 = rand() % 5; // Scegli tra FOR, DES, COS, INT, SAG
+        int choice2;
+        do { choice2 = rand() % 5; } while (choice1 == choice2);
+        bonuses[choice1] += 1;
+        bonuses[choice2] += 1;
+    }
+    else if (strcmp(race, "Mezzorco") == 0) { bonuses[0] += 2; bonuses[2] += 1; }
+    else if (strcmp(race, "Tiefling") == 0) { bonuses[5] += 2; bonuses[3] += 1; }
+}
+
+// Gestisce la scelta del metodo di generazione casuale dalla prima pagina
+static void on_random_method_chosen(GtkButton *button, gpointer user_data) {
+    AppData *data = (AppData *)g_object_get_data(G_OBJECT(button), "app_data");
+    int method = GPOINTER_TO_INT(user_data); // 0=dadi, 1=vettore
+
+    // 1. Genera punteggi base
+    int base_scores[6];
+    if (method == 0) { // Tiro dei Dadi
+        for (int i = 0; i < 6; i++) {
+            int rolls[4], sum = 0, min = 7;
+            for (int j = 0; j < 4; j++) {
+                rolls[j] = (rand() % 6) + 1;
+                sum += rolls[j];
+                if (rolls[j] < min) min = rolls[j];
+            }
+            base_scores[i] = sum - min;
+        }
+    } else { // Vettore Standard
+        int standard[] = {15, 14, 13, 12, 10, 8};
+        memcpy(base_scores, standard, sizeof(standard));
+    }
+
+    qsort(base_scores, 6, sizeof(int), compare_ints_desc);
+
+    // 2. Assegna in base alla priorità della classe
+    GtkStringList *classi_model = GTK_STRING_LIST(gtk_drop_down_get_model(data->dropdown_classe));
+    guint classe_pos = gtk_drop_down_get_selected(data->dropdown_classe);
+    const char *classe_scelta = gtk_string_list_get_string(classi_model, classe_pos);
+
+    int priority[6] = {0, 1, 2, 3, 4, 5};
+    if (strcmp(classe_scelta, "Guerriero") == 0 || strcmp(classe_scelta, "Barbaro") == 0 || strcmp(classe_scelta, "Paladino") == 0) {
+        int p[] = {0, 2, 1, 4, 5, 3}; memcpy(priority, p, sizeof(p));
+    } else if (strcmp(classe_scelta, "Ladro") == 0 || strcmp(classe_scelta, "Ranger") == 0 || strcmp(classe_scelta, "Monaco") == 0) {
+        int p[] = {1, 4, 2, 0, 3, 5}; memcpy(priority, p, sizeof(p));
+    } else if (strcmp(classe_scelta, "Bardo") == 0 || strcmp(classe_scelta, "Stregone") == 0 || strcmp(classe_scelta, "Warlock") == 0) {
+        int p[] = {5, 1, 2, 4, 3, 0}; memcpy(priority, p, sizeof(p));
+    } else if (strcmp(classe_scelta, "Chierico") == 0 || strcmp(classe_scelta, "Druido") == 0) {
+        int p[] = {4, 2, 1, 0, 5, 3}; memcpy(priority, p, sizeof(p));
+    } else if (strcmp(classe_scelta, "Mago") == 0) {
+        int p[] = {3, 2, 1, 4, 5, 0}; memcpy(priority, p, sizeof(p));
+    }
+
+    int assigned_scores[6];
+    for (int i = 0; i < 6; i++) {
+        assigned_scores[priority[i]] = base_scores[i];
+    }
+
+    // 3. Aggiungi bonus razziali
+    GtkStringList *razze_model = GTK_STRING_LIST(gtk_drop_down_get_model(data->dropdown_razza));
+    guint razza_pos = gtk_drop_down_get_selected(data->dropdown_razza);
+    const char *razza_scelta = gtk_string_list_get_string(razze_model, razza_pos);
+    const char *subrace_scelta = "";
+    if (gtk_widget_is_visible(data->row_sottorazza)) {
+        GtkStringList *sottorazze_model = GTK_STRING_LIST(gtk_drop_down_get_model(data->dropdown_sottorazza));
+        guint sottorazza_pos = gtk_drop_down_get_selected(data->dropdown_sottorazza);
+        subrace_scelta = gtk_string_list_get_string(sottorazze_model, sottorazza_pos);
+    }
+
+    int racial_bonuses[6];
+    get_racial_bonuses_no_ui(razza_scelta, subrace_scelta, racial_bonuses);
+
+    for (int i = 0; i < 6; i++) {
+        data->generated_stats[i] = assigned_scores[i] + racial_bonuses[i];
+    }
+    data->stats_are_generated = TRUE;
+
+    // 4. Vai alla pagina delle competenze
+    GtkStringList *backgrounds_model = GTK_STRING_LIST(gtk_drop_down_get_model(data->dropdown_background));
+    guint background_pos = gtk_drop_down_get_selected(data->dropdown_background);
+    const char *background_scelto = gtk_string_list_get_string(backgrounds_model, background_pos);
+
+    AdwNavigationPage *skills_page = create_skills_page(data, razza_scelta, subrace_scelta, classe_scelta, background_scelto);
+    adw_navigation_view_push(data->nav_view, skills_page);
+
+    // Ripristina la UI della prima pagina per quando si torna indietro
+    gtk_widget_set_visible(data->random_method_box, FALSE);
+    gtk_widget_set_visible(data->avanti_button, TRUE);
+}
+
 
 int main(int argc, char **argv) {
     srand(time(NULL));
