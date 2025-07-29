@@ -1,259 +1,169 @@
 # RPGSheetGenerator
 
 <p align="center">
-  <strong>Un generatore di schede per personaggi di Dungeons & Dragons 5ª Edizione</strong>
+  <strong>🧙‍♂️ Generatore di Schede per Personaggi D&D 5e</strong>
 </p>
 
 <p align="center">
-  Un'applicazione desktop moderna sviluppata in C++ con GTK4 e libadwaita per creare schede personaggio complete e professionali per D&D 5e.
+  Un'applicazione desktop moderna sviluppata in C++ con GTK4 e libadwaita per creare schede personaggio complete e professionali per Dungeons & Dragons 5ª Edizione.
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/C++-17-blue" alt="C++17">
+  <img src="https://img.shields.io/badge/GTK-4.0-green" alt="GTK4">
+  <img src="https://img.shields.io/badge/Platform-Linux-orange" alt="Linux">
+  <img src="https://img.shields.io/badge/License-MIT-yellow" alt="License">
 </p>
 
 ---
 
 ## 📖 Indice dei Contenuti
 
-- [Introduzione](#-introduzione)
-- [Caratteristiche Principali](#-caratteristiche-principali)
-- [Funzionalità Dettagliate](#-funzionalità-dettagliate)
-  - [Selezione Razza e Classe](#selezione-razza-e-classe)
-  - [Generazione delle Statistiche](#generazione-delle-statistiche)
-  - [Gestione delle Competenze](#gestione-delle-competenze)
-  - [Background del Personaggio](#background-del-personaggio)
-- [Prerequisiti di Sistema](#-prerequisiti-di-sistema)
-- [Installazione](#-installazione)
-- [Utilizzo](#-utilizzo)
-- [Sviluppo](#-sviluppo)
-- [Contributi](#-contributi)
-- [Licenza](#-licenza)
+- [🎯 Introduzione](#-introduzione)
+- [✨ Caratteristiche Principali](#-caratteristiche-principali)
+- [📱 Screenshot](#-screenshot)
+- [🛠️ Prerequisiti di Sistema](#️-prerequisiti-di-sistema)
+- [⚙️ Installazione](#️-installazione)
+- [🚀 Utilizzo](#-utilizzo)
+- [🔧 Compilazione](#-compilazione)
+- [📝 Funzionalità Dettagliate](#-funzionalità-dettagliate)
+- [💾 Gestione dei Salvataggi](#-gestione-dei-salvataggi)
+- [🔄 Changelog](#-changelog)
+- [🤝 Contributi](#-contributi)
+- [📄 Licenza](#-licenza)
 
 ---
 
 ## 🎯 Introduzione
 
-RPGSheetGenerator è un'applicazione desktop nativa per Linux che semplifica e automatizza il processo di creazione dei personaggi per Dungeons & Dragons 5ª Edizione. L'applicazione offre un'interfaccia grafica moderna e intuitiva, costruita utilizzando le più recenti tecnologie GTK4 e libadwaita, garantendo un'esperienza utente fluida e visivamente accattivante.
+**RPGSheetGenerator** è un'applicazione desktop nativa per Linux che semplifica e automatizza il processo di creazione dei personaggi per **Dungeons & Dragons 5ª Edizione**. 
 
-Il progetto nasce dalla necessità di avere uno strumento efficiente e user-friendly per la gestione dei personaggi D&D, eliminando i calcoli manuali e automatizzando l'applicazione delle regole del gioco.
+L'applicazione offre un'interfaccia grafica moderna e intuitiva, costruita utilizzando le più recenti tecnologie **GTK4** e **libadwaita**, garantendo un'esperienza utente fluida e visivamente accattivante che si integra perfettamente con l'ambiente desktop GNOME.
+
+### 🎲 Perché RPGSheetGenerator?
+
+- **Automazione Completa**: Elimina i calcoli manuali e l'applicazione manuale delle regole
+- **Interfaccia Professionale**: Design pulito e moderno senza elementi distraenti
+- **Efficienza**: Creazione rapida di personaggi completi in pochi click
+- **Accuratezza**: Implementazione fedele delle regole ufficiali D&D 5e
+- **Portabilità**: Salvataggio e caricamento di personaggi in formato JSON
 
 ## ✨ Caratteristiche Principali
 
-- 🧙‍♂️ **Creazione Guidata Completa**: Processo step-by-step per la creazione del personaggio
-- 🎲 **Tre Metodi di Generazione Statistiche**: Point Buy, Standard Array e lancio dadi
-- 🏰 **Database Completo**: Tutte le razze, classi e background del Player's Handbook
-- 🎯 **Calcoli Automatici**: Modificatori, tiri salvezza e competenze calcolati automaticamente
-- 🎨 **Interfaccia Moderna**: Design pulito e responsivo con libadwaita
-- ⚡ **Performance Ottimizzate**: Applicazione nativa C++ veloce e leggera
-- 🐧 **Compatibilità Linux**: Ottimizzato per ambienti desktop GNOME
+### 🧙‍♂️ Creazione Guidata
+- **Processo Step-by-Step**: Interface guidata che accompagna l'utente in ogni fase
+- **Validazione in Tempo Reale**: Controllo immediato della validità delle scelte
+- **Anteprima Dinamica**: Visualizzazione istantanea dei modificatori e bonus
 
-## 🔧 Funzionalità Dettagliate
+### 🎲 Metodi di Generazione Statistiche
+- **Point Buy System**: Sistema ufficiale con 27 punti da distribuire
+- **Standard Array**: Array fisso (15, 14, 13, 12, 10, 8)
+- **Lancio Dadi**: Generazione casuale 4d6 scarta il più basso
+- **Assegnazione Drag & Drop**: Riordino intuitivo delle statistiche
 
-### Selezione Razza e Classe
+### 🏰 Database Completo
+- **9 Razze Giocabili**: Umano, Elfo, Nano, Halfling, Dragonide, Tiefling, Gnomo, Mezzorco, Mezzelfo
+- **12 Classi**: Tutte le classi del Player's Handbook
+- **Backgrounds Diversificati**: Selezione completa di background con competenze
+- **Bonus Razziali**: Applicazione automatica di tutti i modificatori razziali
 
-L'applicazione supporta tutte le razze e classi principali di D&D 5e:
+### 🎯 Calcoli Automatici
+- **Modificatori di Caratteristica**: Calcolo automatico da statistiche
+- **Tiri Salvezza**: Competenze e bonus applicati automaticamente
+- **Competenze**: Gestione completa delle skill proficiencies
+- **Classe Armatura**: Calcolo base + bonus Destrezza
+- **Punti Ferita**: Calcolo automatico basato su classe e Costituzione
 
-**Razze Disponibili:**
-- Umano (Normale e Variante)
-- Elfo (Alto Elfo, Elfo dei Boschi, Drow)
-- Halfling (Piedelesto, Tozzo)
-- Nano (delle Montagne, delle Colline)
-- Dragonide
-- Gnomo (delle Rocce, delle Foreste)
-- Mezzelfo
-- Mezzorco
-- Tiefling
+### 🎨 Interfaccia Moderna
+- **Design libadwaita**: Interfaccia nativa GNOME con look professionale
+- **Layout Responsivo**: Ottimizzato per diverse risoluzioni
+- **Schede Unificate**: Visualizzazione compatta di caratteristiche e competenze
+- **Temi Adattivi**: Supporto automatico per tema chiaro/scuro
 
-**Classi Disponibili:**
-- Barbaro, Bardo, Chierico, Druido
-- Guerriero, Ladro, Mago, Monaco
-- Paladino, Ranger, Stregone, Warlock
+## 📱 Screenshot
 
-### Generazione delle Statistiche
-
-#### Point Buy System
-- Budget di 27 punti da distribuire
-- Costi variabili basati sul valore (8-15 punti)
-- Calcolo automatico dei costi rimanenti
-- Validazione in tempo reale
-
-#### Standard Array
-- Valori predefiniti: 15, 14, 13, 12, 10, 8
-- Assegnazione tramite dropdown intuitivi
-- Prevenzione duplicati automatica
-
-#### Lancio Dadi (4d6 drop lowest)
-- Generazione casuale con il metodo classico
-- Interfaccia drag-and-drop per l'assegnazione
-- Possibilità di rigenerare i valori
-
-### Gestione delle Competenze
-
-- **Tiri Salvezza**: Assegnazione automatica basata sulla classe
-- **Competenze Abilità**: Selezione guidata con limiti di classe
-- **Competenze Background**: Applicazione automatica
-- **Calcolo Modificatori**: Aggiornamento dinamico in base alle statistiche
-
-### Background del Personaggio
-
-Supporto completo per i background standard:
-- Accolito, Criminale, Eremita, Eroe Popolare
-- Nobile, Sapiente, Soldato, Monello
-- Ogni background applica automaticamente le competenze appropriate
+```
+[Qui andranno gli screenshot dell'applicazione]
+```
 
 ## 🛠️ Prerequisiti di Sistema
 
+### Sistemi Operativi Supportati
+- **Linux** (distribuzione con GTK4)
+- **Arch Linux** (raccomandato)
+- **Ubuntu 22.04+**
+- **Fedora 36+**
+
 ### Dipendenze Richieste
-
-**Sistema Operativo**: Linux (testato su Ubuntu 20.04+, Fedora 35+)
-
-**Librerie di Sviluppo**:
 ```bash
-# Ubuntu/Debian
-sudo apt-get install build-essential pkg-config libgtk-4-dev libadwaita-1-dev
-
-# Fedora/RHEL
-sudo dnf install gcc-c++ pkg-config gtk4-devel libadwaita-devel
-
 # Arch Linux
-sudo pacman -S base-devel gtk4 libadwaita
+sudo pacman -S gtk4 libadwaita base-devel pkg-config
+
+# Ubuntu/Debian
+sudo apt-get install libgtk-4-dev libadwaita-1-dev build-essential pkg-config
+
+# Fedora
+sudo dnf install gtk4-devel libadwaita-devel gcc-c++ pkgconfig
 ```
 
-**Tool di Build**:
-- GCC 9.0+ o Clang 10.0+
-- pkg-config
-- make
+## 💾 Gestione dei Salvataggi
 
-## 🚀 Installazione
+### Formato di Salvataggio
 
-### Metodo 1: Compilazione con Makefile (Raccomandato)
+I personaggi vengono salvati in formato **JSON** nella cartella `save/` con la seguente struttura:
 
-1. **Clona il repository:**
-   ```bash
-   git clone https://github.com/giacomotrinca/RPGSheetGenerator.git
-   cd RPGSheetGenerator
-   ```
-
-2. **Verifica le dipendenze:**
-   ```bash
-   make check-deps
-   ```
-
-3. **Compila ed esegui:**
-   ```bash
-   make run
-   ```
-
-### Metodo 2: Compilazione Diretta con Script
-
-1. **Compila ed esegui:**
-   ```bash
-   chmod +x run
-   ./run
-   ```
-
-### Metodo 3: Compilazione Manuale
-
-```bash
-# Compila l'applicazione
-g++ ./src/main.cpp -o dnd_generator $(pkg-config --cflags --libs gtk4 libadwaita-1)
-
-# Esegui l'applicazione
-./dnd_generator
+```json
+{
+  "name": "Gray",
+  "race": "Mezzelfo", 
+  "subrace": "",
+  "class": "Guerriero",
+  "background": "Nobile",
+  "gender": "Agender",
+  "level": 1,
+  "stats": [15, 13, 15, 9, 12, 12],
+  "modifiers": [2, 1, 2, -1, 1, 1],
+  "saving_throw_proficiencies": [true, false, true, false, false, false],
+  "saving_throws": [4, 1, 4, -1, 1, 1],
+  "skill_proficiencies": [false, false, false, false, false, false, false, false, true, true, true, false, false, false, false, false, false, true],
+  "proficiency_bonus": 2,
+  "initiative": 1,
+  "armor_class": 11,
+  "hit_points": 10,
+  "speed": 9
+}
 ```
 
-### Comandi Makefile Utili
+### Funzionalità di Salvataggio
 
-```bash
-# Compilazione e test
-make                    # Compila l'applicazione
-make run               # Compila ed esegue
-make debug             # Compila in modalità debug
-make run-debug         # Compila ed esegue in debug
+- **Auto-save**: Salvataggio automatico durante la creazione
+- **Caricamento**: Lista di personaggi esistenti all'avvio
+- **Backup**: Backup automatico prima delle modifiche
+- **Esportazione**: Possibilità di esportare in altri formati
 
-# Gestione sistema
-make install           # Installa in /usr/local/bin
-make uninstall         # Disinstalla
-make clean             # Pulisce i file compilati
+## 🔄 Changelog
 
-# Utilità
-make check-deps        # Verifica le dipendenze
-make info              # Mostra informazioni del progetto
-make help              # Mostra tutti i comandi disponibili
-```
+### Versione 2.0.0 (Corrente)
+- ✅ **Interfaccia Rinnovata**: Layout unificato e professionale
+- ✅ **Design Pulito**: Rimossi elementi emoji per look professionale  
+- ✅ **Visualizzazione Migliorata**: Valori caratteristiche nel formato "14 +2" con box bianchi
+- ✅ **Makefile Semplificato**: Rimosso codice di generazione immagini
+- ✅ **Ottimizzazioni**: Performance migliorate e codice semplificato
 
-### Metodo 3: Installazione Sistema (Opzionale)
+### Versione 1.x.x (Precedente)
+- ✅ **Funzionalità Base**: Creazione personaggi completa
+- ✅ **Tre Metodi Generazione**: Point Buy, Standard Array, Roll Dice
+- ✅ **Database Completo**: Tutte le razze e classi principali
+- ✅ **Sistema Salvataggio**: Formato JSON con caricamento automatico
 
-```bash
-# Copia il binario in una directory del PATH
-sudo cp dnd_generator /usr/local/bin/
+### Roadmap Futura
+- 🔄 **Livelli Avanzati**: Supporto per personaggi multi-livello
+- 🔄 **Sottoclassi**: Implementazione delle specializzazioni
+- 🔄 **Equipaggiamento**: Sistema completo di gear e inventario
+- 🔄 **Incantesimi**: Database completo di spell per classi magiche
+- 🔄 **Esportazione PDF**: Generazione di schede stampabili
 
-# Ora puoi eseguire da qualsiasi directory
-dnd_generator
-```
-
-## 🎮 Utilizzo
-
-### Avvio dell'Applicazione
-
-1. **Lancio**: Esegui `./dnd_generator` o usa lo script `./run`
-2. **Interfaccia**: L'applicazione si aprirà con una finestra guidata a schede
-
-### Processo di Creazione Personaggio
-
-1. **Scheda Iniziale**: Inserisci nome del personaggio e informazioni base
-2. **Selezione Razza**: Scegli razza e sottorazza dal menu dropdown
-3. **Selezione Classe**: Seleziona la classe del personaggio
-4. **Generazione Statistiche**: Scegli il metodo preferito:
-   - **Point Buy**: Distribuisci 27 punti tra le caratteristiche
-   - **Standard Array**: Assegna i valori predefiniti
-   - **Lancio Dadi**: Genera e assegna valori casuali
-5. **Background**: Seleziona il background del personaggio
-6. **Competenze**: Verifica e personalizza le competenze automatiche
-7. **Scheda Finale**: Visualizza la scheda completa del personaggio
-
-### Schermata Finale - Caratteristiche
-
-La nuova schermata finale presenta la scheda del personaggio in un layout moderno e professionale:
-
-#### 📋 **Header Personaggio**
-- **Nome prominente** con styling elegante
-- **Informazioni razza e classe** ben formattate
-- **Livello e background** chiaramente visibili
-
-#### 📊 **Statistiche Principali**
-- **Cards moderne** per ogni caratteristica (FOR, DES, COS, INT, SAG, CAR)
-- **Modificatori evidenziati** in grande
-- **Valori base** sotto ogni modificatore
-- **Effetti hover** per un'esperienza interattiva
-
-#### ⚔️ **Statistiche di Combattimento**
-- **Classe Armatura, Punti Ferita, Iniziativa**
-- **Velocità (in metri) e Bonus Competenza**
-- **Design distinto** con colori e ombre
-
-#### 🎯 **Competenze e Tiri Salvezza**
-- **Sezioni organizzate** per tiri salvezza e competenze
-- **Indicatori visivi** per le competenze possedute
-- **Calcoli automatici** dei modificatori
-
-#### 🎨 **Design Moderno**
-- **Gradienti e ombre** per profondità visiva
-- **Palette colori** coerente con libadwaita
-- **Animazioni fluide** su hover e transizioni
-- **Layout responsive** che si adatta alle dimensioni
-
-#### 🔄 **Funzionalità Aggiuntive**
-- **Pulsante "Nuovo Personaggio"** per ricominciare
-- **Pulsante "Esporta PDF"** (placeholder per funzionalità futura)
-- **Navigazione fluida** tra le schermate
-
-### Caratteristiche dell'Interfaccia
-
-- **Navigazione Intuitiva**: Barra di progresso che mostra i passaggi completati
-- **Validazione Real-time**: Controlli immediati su valori e selezioni
-- **Calcoli Automatici**: Tutti i modificatori e bonus aggiornati istantaneamente
-- **Anteprima Live**: Visualizzazione in tempo reale delle statistiche finali
-- **Design Coerente**: Utilizza le linee guida di design di GNOME/libadwaita
-
-## 🔨 Sviluppo
+## 🛠️ Sviluppo
 
 ### Struttura del Progetto
 
@@ -261,100 +171,93 @@ La nuova schermata finale presenta la scheda del personaggio in un layout modern
 RPGSheetGenerator/
 ├── src/
 │   └── main.cpp          # Codice sorgente principale
-├── README.md             # Documentazione
-├── LICENSE               # Licenza del progetto
-├── run                   # Script di build e avvio
-└── dnd_generator         # Eseguibile compilato
+├── save/                 # Cartella per salvataggi personaggi
+│   ├── Gray.json        # Esempio di personaggio salvato
+│   └── Shump.json
+├── img/                  # Immagini e assets
+├── Makefile             # Script di compilazione
+├── README.md            # Documentazione
+└── LICENSE              # Licenza MIT
 ```
 
-### Tecnologie Utilizzate
+### Architettura del Codice
 
-- **Linguaggio**: C++17
-- **GUI Framework**: GTK4
-- **Design System**: libadwaita
-- **Build System**: Makefile con GCC e pkg-config
-- **Gestione Memoria**: RAII e smart pointers
-- **Styling**: CSS personalizzato per interfaccia moderna
+- **GTK4/libadwaita**: Framework UI moderno e nativo
+- **C++17**: Standard moderno con features avanzate
+- **Pagine di Navigazione**: Flusso guidato step-by-step
+- **JSON**: Serializzazione semplice e leggibile
+- **Calcoli Automatici**: Logica D&D 5e implementata fedelmente
 
 ### Compilazione per Sviluppatori
 
 ```bash
-# Debug build con simboli
-g++ -g -DDEBUG ./src/main.cpp -o dnd_generator_debug $(pkg-config --cflags --libs gtk4 libadwaita-1)
+# Clona il repository
+git clone https://github.com/giacomotrinca/RPGSheetGenerator.git
+cd RPGSheetGenerator
 
-# Release build ottimizzata
-g++ -O3 -DNDEBUG ./src/main.cpp -o dnd_generator $(pkg-config --cflags --libs gtk4 libadwaita-1)
+# Verifica dipendenze
+make check-deps
 
-# Con warning estesi
-g++ -Wall -Wextra -Wpedantic ./src/main.cpp -o dnd_generator $(pkg-config --cflags --libs gtk4 libadwaita-1)
+# Compilazione debug
+make debug
+
+# Avvio in modalità debug
+make run-debug
+
+# Informazioni di compilazione
+make info
 ```
 
-### Estensioni Future
+### Contribuire al Progetto
 
-#### ✅ **Completate nella versione corrente:**
-- [x] Schermata finale con layout moderno e professionale
-- [x] Sistema di build con Makefile completo
-- [x] CSS personalizzato per un design accattivante
-- [x] Visualizzazione completa della scheda del personaggio
-- [x] Funzionalità "Nuovo Personaggio" per ricominciare
-- [x] Velocità del personaggio visualizzata in metri (sistema metrico)
-- [x] Correzione bug crash nell'assegnazione automatica statistiche
-
-#### 🚧 **In Sviluppo:**
-- [ ] Export completo in PDF della scheda
-- [ ] Supporto per salvataggio/caricamento schede in formato JSON
-- [ ] Modalità stampa ottimizzata
-
-#### 🔮 **Roadmap Futura:**
-- [ ] Supporto multi-lingua (Inglese, Francese, Spagnolo)
-- [ ] Integrazione con API D&D Beyond
-- [ ] Supporto per contenuti aggiuntivi (Xanathar's, Tasha's, etc.)
-- [ ] Modalità campagna per gestire multiple schede
-- [ ] Sistema di note e biografia del personaggio
-- [ ] Calcolatore di equipaggiamento e inventario
-- [ ] Sistema di incantesimi per classi magiche
-- [ ] Generatore di background personalizzati
-
-## 🤝 Contributi
-
-I contributi sono molto graditi! Ecco come puoi contribuire:
-
-### Come Contribuire
-
-1. **Fork** il repository
+1. **Fork** del repository
 2. **Crea** un branch per la tua feature (`git checkout -b feature/AmazingFeature`)
-3. **Commit** le tue modifiche (`git commit -m 'Add some AmazingFeature'`)
+3. **Commit** delle modifiche (`git commit -m 'Add some AmazingFeature'`)
 4. **Push** al branch (`git push origin feature/AmazingFeature`)
 5. **Apri** una Pull Request
 
-### Tipi di Contributi Benvenuti
+### Linee Guida per Contributi
 
-- 🐛 **Bug Reports**: Segnala problemi o comportamenti inaspettati
-- 💡 **Feature Requests**: Suggerisci nuove funzionalità
-- 📝 **Miglioramenti Documentazione**: Aiuta a migliorare guide e README
-- 🔧 **Codice**: Implementa nuove feature o correggi bug
-- 🎨 **Design**: Migliora l'interfaccia utente e l'esperienza utente
+- **Code Style**: Segui lo stile C++ esistente
+- **Documentazione**: Commenta le funzioni pubbliche
+- **Testing**: Testa tutte le nuove funzionalità
+- **Commit Messages**: Usa messaggi descrittivi e chiari
 
-### Linee Guida per il Codice
+## 🐛 Segnalazione Bug
 
-- Segui le convenzioni C++ moderne (C++17+)
-- Utilizza nomi descrittivi per variabili e funzioni
-- Commenta il codice complesso
-- Testa le modifiche su diverse distribuzioni Linux
-- Mantieni la compatibilità con GTK4 e libadwaita
+Se riscontri problemi o bug:
 
-### Reporting Bug
+1. **Verifica** che sia un problema riproducibile
+2. **Controlla** le [Issues esistenti](https://github.com/giacomotrinca/RPGSheetGenerator/issues)
+3. **Crea** una nuova issue con:
+   - Descrizione dettagliata del problema
+   - Passi per riprodurre il bug
+   - Informazioni di sistema (OS, versione GTK, etc.)
+   - Screenshot se applicabili
 
-Quando riporti un bug, includi:
-- Versione del sistema operativo
-- Versioni di GTK4 e libadwaita
-- Passi per riprodurre il problema
-- Comportamento atteso vs comportamento attuale
-- Screenshot se applicabili
+## 📚 Risorse Aggiuntive
+
+### Riferimenti D&D 5e
+- [Player's Handbook](https://dnd.wizards.com/) - Regole ufficiali
+- [D&D Beyond](https://www.dndbeyond.com/) - Strumenti ufficiali online
+- [SRD 5.1](https://dnd.wizards.com/resources/systems-reference-document) - System Reference Document
+
+### Documentazione Tecnica
+- [GTK4 Documentation](https://docs.gtk.org/gtk4/) - Framework UI
+- [libadwaita Documentation](https://gnome.pages.gitlab.gnome.org/libadwaita/) - Design system GNOME
+- [C++ Reference](https://en.cppreference.com/) - Standard C++17
+
+## 🤝 Contributi
+
+I contributi sono benvenuti! Consulta il file [CONTRIBUTING.md](CONTRIBUTING.md) per le linee guida dettagliate.
+
+### Contributori
+
+- **[giacomotrinca](https://github.com/giacomotrinca)** - Creatore e maintainer principale
 
 ## 📄 Licenza
 
-Questo progetto è distribuito sotto licenza [MIT](LICENSE). Vedi il file `LICENSE` per i dettagli completi.
+Questo progetto è rilasciato sotto licenza **MIT**. Vedi il file [LICENSE](LICENSE) per i dettagli completi.
 
 ```
 MIT License
@@ -370,15 +273,8 @@ furnished to do so, subject to the following conditions:
 
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
-```
 
----
-
-<p align="center">
-  <strong>Creato con ❤️ per la comunità D&D</strong>
-</p>
-
-<p align="center">
-  Se questo progetto ti è stato utile, considera di lasciare una ⭐ su GitHub!
-</p>
-
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
