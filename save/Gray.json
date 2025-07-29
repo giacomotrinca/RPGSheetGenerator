@@ -1,0 +1,19 @@
+{
+  "name": "Gray",
+  "race": "Mezzelfo",
+  "subrace": "",
+  "class": "Guerriero",
+  "background": "Nobile",
+  "gender": "Agender",
+  "level": 1,
+  "stats": [15, 13, 15, 9, 12, 12],
+  "modifiers": [2, 1, 2, -1, 1, 1],
+  "saving_throw_proficiencies": [true, false, true, false, false, false],
+  "saving_throws": [4, 1, 4, -1, 1, 1],
+  "skill_proficiencies": [false, false, false, false, false, false, false, false, true, true, true, false, false, false, false, false, false, true],
+  "proficiency_bonus": 2,
+  "initiative": 1,
+  "armor_class": 11,
+  "hit_points": 10,
+  "speed": 9
+}

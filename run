@@ -1,7 +1,10 @@
 #!/bin/bash
 
+echo "Creating directories..."
+mkdir -p save
+
 echo "Compiling..."
-if g++ ./src/main.cpp -o dnd_generator $(pkg-config --cflags --libs gtk4 libadwaita-1); then
+if g++ ./src/main.cpp -o dnd_generator "$(pkg-config --cflags --libs gtk4 libadwaita-1)"; then
     echo "Compilation successful. Running..."
     ./dnd_generator > /dev/null # 2>&1
 else

@@ -226,7 +226,7 @@ La nuova schermata finale presenta la scheda del personaggio in un layout modern
 
 #### ⚔️ **Statistiche di Combattimento**
 - **Classe Armatura, Punti Ferita, Iniziativa**
-- **Velocità e Bonus Competenza**
+- **Velocità (in metri) e Bonus Competenza**
 - **Design distinto** con colori e ombre
 
 #### 🎯 **Competenze e Tiri Salvezza**
@@ -297,6 +297,8 @@ g++ -Wall -Wextra -Wpedantic ./src/main.cpp -o dnd_generator $(pkg-config --cfla
 - [x] CSS personalizzato per un design accattivante
 - [x] Visualizzazione completa della scheda del personaggio
 - [x] Funzionalità "Nuovo Personaggio" per ricominciare
+- [x] Velocità del personaggio visualizzata in metri (sistema metrico)
+- [x] Correzione bug crash nell'assegnazione automatica statistiche
 
 #### 🚧 **In Sviluppo:**
 - [ ] Export completo in PDF della scheda

@@ -16,7 +16,13 @@ CFLAGS = $(shell $(PKG_CONFIG) --cflags $(LIBS))
 LDFLAGS = $(shell $(PKG_CONFIG) --libs $(LIBS))
 
 # Target di default
-all: $(TARGET)
+all: setup $(TARGET)
+
+# Setup iniziale (crea cartelle necessarie)
+setup:
+	@echo "📁 Creazione cartelle di progetto..."
+	@mkdir -p save
+	@echo "✅ Cartella 'save' creata"
 
 # Compilazione release
 $(TARGET): $(SOURCES)
@@ -27,7 +33,7 @@ $(TARGET): $(SOURCES)
 # Compilazione debug
 debug: $(SOURCES)
 	@echo "🐛 Compilazione in modalità debug..."
-	$(CXX) $(CXXFLAGS) $(DEBUG_FLAGS) $(CFLAGS) $< -o $(TARGET)_debug $(LDFLAGS)
+	$(CXX) $(CXXFLAGS) $(DEBUG_FLAGS) $(CFLAGS) $(SOURCES) -o $(TARGET)_debug $(LDFLAGS)
 	@echo "✅ Compilazione debug completata: $(TARGET)_debug"
 
 # Esecuzione dell'applicazione
@@ -61,7 +67,7 @@ clean:
 # Controllo delle dipendenze
 check-deps:
 	@echo "🔍 Controllo delle dipendenze..."
-	@$(PKG_CONFIG) --exists $(LIBS) && echo "✅ Tutte le dipendenze sono installate" || echo "❌ Dipendenze mancanti"
+	@$(PKG_CONFIG) --exists $(LIBS) && echo "✅ Dipendenze GTK installate" || echo "❌ Dipendenze GTK mancanti"
 	@echo "Versioni installate:"
 	@$(PKG_CONFIG) --modversion $(LIBS) 2>/dev/null || echo "❌ Impossibile verificare le versioni"
 
@@ -90,23 +96,23 @@ help:
 	@echo "📚 Makefile per RPGSheetGenerator"
 	@echo ""
 	@echo "Target disponibili:"
-	@echo "  all         Compila l'applicazione (default)"
-	@echo "  debug       Compila in modalità debug"
-	@echo "  run         Compila ed esegue l'applicazione"
-	@echo "  run-debug   Compila ed esegue in modalità debug"
-	@echo "  install     Installa in /usr/local/bin"
-	@echo "  uninstall   Rimuove dall'installazione"
-	@echo "  clean       Rimuove i file compilati"
-	@echo "  check-deps  Verifica le dipendenze"
-	@echo "  info        Mostra informazioni del progetto"
-	@echo "  package     Crea un pacchetto distribuibile"
-	@echo "  help        Mostra questo messaggio"
+	@echo "  all            Compila l'applicazione (default)"
+	@echo "  debug          Compila in modalità debug"
+	@echo "  run            Compila ed esegue l'applicazione"
+	@echo "  run-debug      Compila ed esegue in modalità debug"
+	@echo "  install        Installa in /usr/local/bin"
+	@echo "  uninstall      Rimuove dall'installazione"
+	@echo "  clean          Rimuove i file compilati"
+	@echo "  check-deps     Verifica le dipendenze"
+	@echo "  info           Mostra informazioni del progetto"
+	@echo "  package        Crea un pacchetto distribuibile"
+	@echo "  help           Mostra questo messaggio"
 	@echo ""
 	@echo "Esempi:"
-	@echo "  make              # Compila l'applicazione"
-	@echo "  make run          # Compila ed esegue"
-	@echo "  make debug        # Compila in modalità debug"
-	@echo "  make clean        # Pulisce i file compilati"
+	@echo "  make           # Compila l'applicazione"
+	@echo "  make run       # Compila ed esegue"
+	@echo "  make debug     # Compila in modalità debug"
+	@echo "  make clean     # Pulisce i file compilati"
 
 # Dichiarazione dei target che non creano file
 .PHONY: all debug run run-debug install uninstall clean check-deps info package help

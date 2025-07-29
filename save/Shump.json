@@ -1,0 +1,19 @@
+{
+  "name": "Shump",
+  "race": "Mezzorco",
+  "subrace": "",
+  "class": "Guerriero",
+  "background": "Accolito",
+  "gender": "Non-binario",
+  "level": 1,
+  "stats": [17, 13, 14, 8, 13, 9],
+  "modifiers": [3, 1, 2, -1, 1, -1],
+  "saving_throw_proficiencies": [true, false, true, false, false, false],
+  "saving_throws": [5, 1, 4, -1, 1, -1],
+  "skill_proficiencies": [true, false, false, false, false, false, false, true, false, false, true, false, true, false, false, false, false, false],
+  "proficiency_bonus": 2,
+  "initiative": 1,
+  "armor_class": 11,
+  "hit_points": 10,
+  "speed": 9
+}
